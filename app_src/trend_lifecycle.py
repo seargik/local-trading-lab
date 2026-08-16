@@ -292,15 +292,205 @@ def _entry_mode_for_state(state: str) -> str:
     return "manual_review"
 
 
+STRATEGY_FAMILY_ALIASES: dict[str, set[str]] = {
+    "trend_pullback": {"htf_pullback", "pullback_continuation", "trend_entry", "rsi_regime", "vwap_reclaim"},
+    "htf_pullback": {"trend_pullback", "pullback_continuation", "trend_following"},
+    "vwap_reclaim": {"trend_pullback", "trend_entry", "breakout_balanced"},
+    "trend_following": {"trend_pullback", "pullback_continuation", "hold_manage"},
+    "rsi_regime": {"trend_pullback", "trend_following"},
+    "compression_breakout": {"breakout_attempt", "trend_entry", "vwap_reclaim", "compression_release"},
+    "compression_release": {"compression_breakout", "breakout_attempt"},
+    "range_reversion": {"mean_reversion", "market_maker_range"},
+    "mean_reversion": {"range_reversion", "market_maker_range"},
+    "market_maker_range": {"range_reversion", "mean_reversion"},
+    "liquidity_sweep_fade": {"smc_sweep_reversal", "defensive_reversal", "exhaustion_reversal"},
+    "smc_sweep_reversal": {"liquidity_sweep_fade", "defensive_reversal"},
+    "exhaustion_reversal": {"liquidity_sweep_fade", "defensive_reversal", "profit_protection"},
+    "defensive_reversal": {"liquidity_sweep_fade", "exhaustion_reversal"},
+    "no_trade": {"wait", "manual_review"},
+    "bundle": {"trend_pullback", "trend_following", "vwap_reclaim", "compression_breakout", "range_reversion"},
+}
+
+
+def _lower_text(value: Any) -> str:
+    return str(value or "").strip().lower().replace("-", "_")
+
+
+def infer_strategy_family(opinion: dict[str, Any] | None) -> str:
+    """Best-effort map from a strategy/bundle opinion to a lifecycle strategy family.
+
+    This intentionally stays heuristic: it is used for explainable fit labels first,
+    not as a hard execution gate.
+    """
+    opinion = opinion or {}
+    raw = " ".join(
+        [
+            _lower_text(opinion.get("strategy_name")),
+            _lower_text(opinion.get("bundle_name")),
+            _lower_text(opinion.get("template_key")),
+            _lower_text(opinion.get("trade_owner_key")),
+        ]
+    )
+    if opinion.get("strategy_mode") == "bundle" or "bundle" in raw:
+        return "bundle"
+    checks = [
+        (("htf" in raw and "pullback" in raw) or "ltf_pullback" in raw, "htf_pullback"),
+        ("vwap" in raw or "reclaim" in raw, "vwap_reclaim"),
+        ("rsi" in raw, "rsi_regime"),
+        ("trend_follow" in raw or "alignment_rider" in raw, "trend_following"),
+        ("compression_release" in raw, "compression_release"),
+        ("compression" in raw or "breakout" in raw or "oi_expansion" in raw, "compression_breakout"),
+        ("range_rotation" in raw or "range" in raw, "range_reversion"),
+        ("mean_reversion" in raw or "z_score" in raw or "zscore" in raw, "mean_reversion"),
+        ("market_maker" in raw or "scalper" in raw, "market_maker_range"),
+        ("liquidity" in raw or "sweep" in raw or "failed_breakout" in raw, "liquidity_sweep_fade"),
+        ("smc" in raw or "smart_money" in raw, "smc_sweep_reversal"),
+        ("exhaustion" in raw or "funding" in raw, "exhaustion_reversal"),
+        ("absorption" in raw or "order_book" in raw, "defensive_reversal"),
+        ("no_trade" in raw or "regime_filter" in raw, "no_trade"),
+    ]
+    for matched, family in checks:
+        if matched:
+            return family
+    return "unknown"
+
+
+def _family_matches(strategy_family: str, allowed_or_blocked: list[str]) -> bool:
+    strategy_family = _lower_text(strategy_family)
+    candidates = {_lower_text(x) for x in (allowed_or_blocked or [])}
+    if not candidates:
+        return False
+    if "all" in candidates:
+        return True
+    if strategy_family in candidates:
+        return True
+    aliases = STRATEGY_FAMILY_ALIASES.get(strategy_family, set())
+    if aliases.intersection(candidates):
+        return True
+    # Prefix/contains fallback helps with families such as trend_entry vs trend_pullback.
+    for candidate in candidates:
+        if candidate and (candidate in strategy_family or strategy_family in candidate):
+            return True
+    return False
+
+
+def _direction_fit(opinion_bias: str, lifecycle_direction: str, lifecycle_state: str) -> tuple[str, str]:
+    bias = str(opinion_bias or "WAIT").upper()
+    direction = str(lifecycle_direction or "MIXED").upper()
+    if bias not in {"LONG", "SHORT"}:
+        return "neutral", "non-directional or waiting opinion"
+    if direction in {"MIXED", "NONE", ""}:
+        return "neutral", "lifecycle direction is mixed"
+    if bias == direction:
+        return "aligned", "strategy direction agrees with lifecycle direction"
+    reversal_states = {"trend_exhaustion", "liquidity_sweep_reversal_risk", "panic_volatility"}
+    if lifecycle_state in reversal_states:
+        return "reversal_ok", "opposite-side idea may be valid because lifecycle is reversal/risk state"
+    return "opposed", "strategy direction conflicts with lifecycle direction"
+
+
+def evaluate_strategy_lifecycle_fit(opinion: dict[str, Any], lifecycle: TrendLifecycleResult | dict[str, Any]) -> dict[str, Any]:
+    if isinstance(lifecycle, TrendLifecycleResult):
+        lifecycle_dict = lifecycle.to_dict()
+    else:
+        lifecycle_dict = dict(lifecycle or {})
+    state = str(lifecycle_dict.get("lifecycle_state") or "no_trade_data_missing")
+    family = infer_strategy_family(opinion)
+    allowed = list(lifecycle_dict.get("allowed_strategy_families") or [])
+    blocked = list(lifecycle_dict.get("blocked_strategy_families") or [])
+    direction_status, direction_reason = _direction_fit(opinion.get("bias"), lifecycle_dict.get("trend_direction"), state)
+
+    is_blocked = _family_matches(family, blocked)
+    is_allowed = _family_matches(family, allowed)
+    if state in {"no_trade_data_missing", "panic_volatility"} and not is_allowed:
+        fit_status = "blocked"
+        allowed_by_lifecycle = False
+        reason = "market state is no-trade/defensive and this family is not explicitly allowed"
+    elif direction_status == "opposed" and state not in {"range_chop"}:
+        fit_status = "direction_conflict"
+        allowed_by_lifecycle = False
+        reason = direction_reason
+    elif is_blocked:
+        fit_status = "blocked"
+        allowed_by_lifecycle = False
+        reason = f"{family} is blocked or discouraged in {state}"
+    elif is_allowed:
+        fit_status = "fit"
+        allowed_by_lifecycle = True
+        reason = f"{family} matches allowed families for {state}; {direction_reason}"
+    elif family == "unknown":
+        fit_status = "unknown"
+        allowed_by_lifecycle = False
+        reason = "strategy family could not be mapped; manual review needed"
+    else:
+        fit_status = "caution"
+        allowed_by_lifecycle = False
+        reason = f"{family} is not listed as a preferred family for {state}"
+
+    return {
+        "strategy_family": family,
+        "allowed_by_lifecycle": bool(allowed_by_lifecycle),
+        "fit_status": fit_status,
+        "fit_reason": reason,
+        "direction_fit": direction_status,
+        "lifecycle_state": state,
+        "lifecycle_direction": lifecycle_dict.get("trend_direction"),
+        "lifecycle_confidence": lifecycle_dict.get("confidence"),
+        "suggested_exit_family": lifecycle_dict.get("exit_family"),
+        "lifecycle_entry_mode": lifecycle_dict.get("entry_mode"),
+    }
+
+
+def attach_lifecycle_fit_to_analysis(
+    analysis: dict[str, Any],
+    symbol: str = "",
+    analysis_tf: str = "",
+    rules_path: str | Path | None = None,
+) -> TrendLifecycleResult:
+    """Attach lifecycle state and per-opinion fit labels to one analysis payload."""
+    features = analysis.get("features") or {}
+    htf_context = analysis.get("htf_context") or {}
+    lifecycle = classify_trend_lifecycle(features, htf_context, symbol=symbol, analysis_tf=analysis_tf, rules_path=rules_path)
+    lifecycle_dict = lifecycle.to_dict()
+    analysis["lifecycle"] = lifecycle_dict
+    for collection_name in ["strategies", "bundles", "all_opinions"]:
+        enriched = []
+        for opinion in analysis.get(collection_name, []) or []:
+            if not isinstance(opinion, dict):
+                enriched.append(opinion)
+                continue
+            fit = evaluate_strategy_lifecycle_fit(opinion, lifecycle)
+            enriched.append({**opinion, **fit})
+        analysis[collection_name] = enriched
+    return lifecycle
+
+
+def _row_from_lifecycle_result(result: TrendLifecycleResult | dict[str, Any], analysis: dict[str, Any] | None = None) -> dict[str, Any]:
+    row = result.to_dict() if isinstance(result, TrendLifecycleResult) else dict(result or {})
+    analysis = analysis or {}
+    opinions = (analysis.get("strategies") or []) + (analysis.get("bundles") or [])
+    directional = [x for x in opinions if isinstance(x, dict) and x.get("bias") in {"LONG", "SHORT"}]
+    fit_ready = [x for x in directional if x.get("allowed_by_lifecycle")]
+    blocked = [x for x in directional if x.get("fit_status") in {"blocked", "direction_conflict"}]
+    row["fit_ready_count"] = len(fit_ready)
+    row["directional_opinion_count"] = len(directional)
+    row["blocked_or_conflict_count"] = len(blocked)
+    row["best_fit_strategy"] = max(fit_ready, key=lambda x: float(x.get("score") or 0)).get("strategy_name") if fit_ready else None
+    row["allowed_strategy_families"] = ", ".join(row.get("allowed_strategy_families") or [])
+    row["blocked_strategy_families"] = ", ".join(row.get("blocked_strategy_families") or [])
+    row["reason"] = " | ".join(row.get("reason") or [])
+    return row
+
+
 def classify_analysis_map(analysis_map: dict[str, dict[str, Any]], analysis_tf: str = "") -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     for symbol, payload in (analysis_map or {}).items():
-        features = payload.get("features") if isinstance(payload, dict) else {}
-        htf_context = payload.get("htf_context") if isinstance(payload, dict) else {}
-        result = classify_trend_lifecycle(features, htf_context, symbol=str(symbol), analysis_tf=analysis_tf)
-        row = result.to_dict()
-        row["allowed_strategy_families"] = ", ".join(row.get("allowed_strategy_families") or [])
-        row["blocked_strategy_families"] = ", ".join(row.get("blocked_strategy_families") or [])
-        row["reason"] = " | ".join(row.get("reason") or [])
+        if not isinstance(payload, dict):
+            continue
+        if isinstance(payload.get("lifecycle"), dict):
+            row = _row_from_lifecycle_result(payload.get("lifecycle") or {}, payload)
+        else:
+            lifecycle = attach_lifecycle_fit_to_analysis(payload, symbol=str(symbol), analysis_tf=analysis_tf)
+            row = _row_from_lifecycle_result(lifecycle, payload)
         rows.append(row)
     return pd.DataFrame(rows)

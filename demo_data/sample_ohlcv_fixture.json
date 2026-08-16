@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "purpose": "Metadata for V28.5 demo mode. Synthetic candles are generated at runtime by app_src/demo_mode.py so no private or exchange data is committed.",
+  "symbols": [
+    {"symbol": "ETHUSDT", "pattern": "trend_pullback", "intended_lifecycle": "trend_pullback_entry"},
+    {"symbol": "BTCUSDT", "pattern": "compression_breakout", "intended_lifecycle": "breakout_attempt"},
+    {"symbol": "SOLUSDT", "pattern": "range_chop", "intended_lifecycle": "range_chop"}
+  ],
+  "safe_for_public_repo": true
+}

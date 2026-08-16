@@ -9,6 +9,7 @@ from .engine import analyze_symbol, build_trade_levels, evaluate_trade_outcome, 
 from .bundle_engine import build_live_bundle_payloads
 from .market_data import BinanceFuturesClient
 from .settings import HTF_MAP
+from .trend_lifecycle import attach_lifecycle_fit_to_analysis
 
 
 def fetch_market_snapshot(symbol: str, timeframe: str, storage=None) -> dict[str, Any]:
@@ -50,6 +51,10 @@ def build_setup_summary(symbol: str, analysis_timeframe: str, strategy_row: dict
         f"Strategy version created at: {strategy_row.get('version_created_at', '')}",
         f"Template: {strategy_row['template_key']}",
         f"Regime: {analysis['summary']['regime']}",
+        f"Lifecycle state: {(analysis.get('lifecycle') or {}).get('lifecycle_state', '')}",
+        f"Lifecycle direction: {(analysis.get('lifecycle') or {}).get('trend_direction', '')}",
+        f"Lifecycle strategy fit: {strategy_row.get('fit_status', '')} | {strategy_row.get('fit_reason', '')}",
+        f"Suggested lifecycle exit family: {strategy_row.get('suggested_exit_family') or (analysis.get('lifecycle') or {}).get('exit_family', '')}",
         f"Bias: {strategy_row['bias']}",
         f"Score: {strategy_row['score']} / threshold {strategy_row['threshold']}",
         f"Expected outcome: {strategy_row.get('expected_outcome', '')}",
@@ -184,12 +189,17 @@ def run_scanner(storage, analysis_timeframe: str, selected_symbols: list[str], s
         htf_frames = fetch_htf_frames(symbol, analysis_timeframe, storage=storage)
         bundle_payloads = build_live_bundle_payloads(slot_rows, symbol, enabled=live_bundle_mode)
         analysis = analyze_symbol(df, slot_rows, extras=extras, htf_frames=htf_frames, bundle_payloads=bundle_payloads)
+        lifecycle = attach_lifecycle_fit_to_analysis(analysis, symbol=symbol, analysis_tf=analysis_timeframe)
         analysis_map[symbol] = analysis
         best_bundle = None
         if analysis.get("bundles"):
             actionable = [b for b in analysis.get("bundles", []) if b.get("bias") in {"LONG", "SHORT"}]
             if actionable:
                 best_bundle = max(actionable, key=lambda b: float(b.get("score") or 0)).get("bundle_name")
+        opinions_for_fit = (analysis.get("strategies") or []) + (analysis.get("bundles") or [])
+        directional_opinions = [x for x in opinions_for_fit if isinstance(x, dict) and x.get("bias") in {"LONG", "SHORT"}]
+        fit_ready_opinions = [x for x in directional_opinions if x.get("allowed_by_lifecycle")]
+        blocked_fit_opinions = [x for x in directional_opinions if x.get("fit_status") in {"blocked", "direction_conflict"}]
         scanner_rows.append({
             "symbol": symbol,
             "last_open_time": analysis["features"].get("open_time"),
@@ -204,6 +214,15 @@ def run_scanner(storage, analysis_timeframe: str, selected_symbols: list[str], s
             "ob_imbalance": analysis["features"].get("order_book_imbalance"),
             "bundle_count": len(analysis.get("bundles", []) or []),
             "best_bundle": best_bundle,
+            "lifecycle_state": lifecycle.lifecycle_state,
+            "lifecycle_direction": lifecycle.trend_direction,
+            "lifecycle_confidence": lifecycle.confidence,
+            "lifecycle_entry_mode": lifecycle.entry_mode,
+            "lifecycle_exit_family": lifecycle.exit_family,
+            "fit_ready_count": len(fit_ready_opinions),
+            "directional_opinion_count": len(directional_opinions),
+            "blocked_or_conflict_count": len(blocked_fit_opinions),
+            "best_fit_strategy": max(fit_ready_opinions, key=lambda x: float(x.get("score") or 0)).get("strategy_name") if fit_ready_opinions else None,
         })
         recent_bars = df.tail(20)[["open_time", "open", "high", "low", "close", "volume"]].to_dict(orient="records")
         for strategy_row in (analysis.get("strategies", []) or []) + (analysis.get("bundles", []) or []):
