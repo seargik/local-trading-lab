@@ -45,7 +45,7 @@ endTime
 limit
 ```
 
-The engine requests up to 1500 candles per page, writes each page into the parquet store, then continues from the last candle open time + one interval.
+The engine requests up to 1000 candles per page, writes each page into the parquet store, then continues from the last candle open time + one interval.
 
 ## Basic examples
 
