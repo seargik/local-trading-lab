@@ -1,0 +1,18 @@
+{
+  "selected_symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT",
+    "BNBUSDT",
+    "XRPUSDT",
+    "DOGEUSDT",
+    "ADAUSDT",
+    "AVAXUSDT"
+  ],
+  "timeframe": "1h",
+  "analysis_timeframe": "1h",
+  "chart_timeframe": "5m",
+  "auto_paper_mode": false,
+  "lookback": 300,
+  "poll_seconds": 300
+}

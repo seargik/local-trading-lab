@@ -1,0 +1,27 @@
+LOCAL LAB v19.1 (consolidated)
+
+This package combines:
+- v19 comparison/queue features
+- worker/runtime fix patch v2
+
+Quick start
+1) Open PowerShell in this folder.
+2) Create/update venv and install deps:
+   py -3 -m venv .venv
+   .\.venv\Scripts\python.exe -m pip install --upgrade pip
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+3) Start backtest worker:
+   .\start_backtest_worker.bat
+
+4) Start backtest app:
+   .\start_backtest_only.bat
+   If port 8503 is busy, run:
+   .\.venv\Scripts\python.exe -m streamlit run .\backtest_app.py --server.port 8504
+
+5) Start main app stack if needed:
+   .\start_all_windows.bat
+
+Notes
+- This is a consolidated latest-working package from the files available here.
+- The larger strategy-framework improvements discussed later (bundle engine, exit-family refactor, long/short split analytics, etc.) are not yet implemented in this code package.

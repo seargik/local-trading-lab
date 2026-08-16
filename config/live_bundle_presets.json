@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "notes": "Live bundle presets used only when the sidebar setting 'Live bundle presets' is enabled. Single strategies remain separate owners.",
+  "bundles": [
+    {
+      "enabled": true,
+      "bundle_name": "ETH Core Consensus",
+      "symbols": ["ETHUSDT"],
+      "mode": "n_of_m",
+      "n_required": 2,
+      "components": [
+        {"strategy_name": "HTF Pullback Continuation", "min_score": 70, "preferred_entry_style": "confirm_bar"},
+        {"strategy_name": "RSI Best Practices Regime Trader", "min_score": 70, "preferred_stop_multiplier": 4},
+        {"strategy_name": "Range Rotation With Midline Rejection", "min_score": 68, "preferred_stop_multiplier": 1.5}
+      ],
+      "notes": "Practical ETH n-of-m consensus. Use as separate bundle owner, not as a replacement for single strategies."
+    },
+    {
+      "enabled": true,
+      "bundle_name": "BTC Core Consensus",
+      "symbols": ["BTCUSDT"],
+      "mode": "n_of_m",
+      "n_required": 2,
+      "components": [
+        {"strategy_name": "HTF Pullback Continuation", "min_score": 70, "preferred_stop_multiplier": 1.25},
+        {"strategy_name": "RSI Best Practices Regime Trader", "min_score": 70},
+        {"strategy_name": "VWAP Reclaim Trend Continuation", "min_score": 68, "preferred_entry_style": "confirm_bar"},
+        {"strategy_name": "Failed Breakout / Liquidity Sweep Fade", "min_score": 66}
+      ],
+      "notes": "BTC core consensus with a fade diversifier."
+    },
+    {
+      "enabled": true,
+      "bundle_name": "SOL Core Consensus",
+      "symbols": ["SOLUSDT"],
+      "mode": "weighted_consensus",
+      "bundle_threshold": 2.0,
+      "weights": {
+        "HTF Pullback Continuation": 1.2,
+        "Trend Following Alignment Rider": 1.0,
+        "RSI Best Practices Regime Trader": 0.9,
+        "VWAP Reclaim Trend Continuation": 0.8,
+        "Range Rotation With Midline Rejection": 0.5
+      },
+      "components": [
+        {"strategy_name": "HTF Pullback Continuation", "min_score": 70, "preferred_entry_style": "confirm_bar"},
+        {"strategy_name": "Trend Following Alignment Rider", "min_score": 68, "preferred_stop_multiplier": 2},
+        {"strategy_name": "RSI Best Practices Regime Trader", "min_score": 68, "preferred_entry_style": "confirm_bar"},
+        {"strategy_name": "VWAP Reclaim Trend Continuation", "min_score": 68, "preferred_entry_style": "confirm_bar"},
+        {"strategy_name": "Range Rotation With Midline Rejection", "min_score": 66}
+      ],
+      "notes": "Weighted SOL consensus."
+    }
+  ]
+}

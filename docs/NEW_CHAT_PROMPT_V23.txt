@@ -1,0 +1,39 @@
+I am continuing development of a local crypto trading analysis app.
+
+Use the attached package and the handover doc as the source of truth:
+- package: latest V23 working package
+- handover: `docs/HANDOVER_V23.md`
+
+Treat these decisions as already chosen unless something is clearly broken:
+1. MVP is crypto-only.
+2. Architecture is local-first.
+3. Live data is WebSocket-first, with REST for bootstrap/backfill/metadata.
+4. Shared historical working store is `data/ohlcv_store`.
+5. Backtest worker runs separately from the main UI.
+6. Quant-first, LLM-second.
+7. Do not remove strategies; improve them holistically.
+8. Single strategies and bundle strategies are separate trade owners.
+9. `one_trade_at_time` should follow symbol + direction + strategy for single strategies, and symbol + direction + bundle for bundles.
+10. Exit logic should move toward exit families by archetype.
+11. Long/short analytics and strategy validity audit should keep expanding.
+12. Score calibration should be improved rather than relying on hard universal score cutoffs.
+
+What is already available:
+- Backtest Lab with saved runs, comparisons, queue, what-if matrix
+- Bundle consensus mode in backtest
+- Foundation Toolkit tab with Bundle Lab, Exit Families, Validity Audit, Calibration Reports
+- Separate backtest worker and separate backtest Streamlit window
+
+What is still not fully wired:
+- bundle engine in the live scanner / execution path
+- final polished comparison dashboard
+- deeper regime labeling and overlap analytics
+- full execution-friction realism
+
+Please help me implement the next step without reopening already-decided architecture.
+Priorities for the next step:
+- preserve all existing strategies
+- improve exits by archetype
+- improve long/short and regime analytics
+- improve strategy validity / calibration
+- continue wiring bundles more deeply where appropriate

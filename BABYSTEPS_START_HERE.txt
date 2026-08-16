@@ -1,0 +1,61 @@
+1) Unzip the folder.
+2) Keep your Binance extracted files in the project, for example:
+   data_bootstrap\extracted\XRPUSDT\XRPUSDT-5m-2026-04-04
+3) Open PowerShell in the project folder.
+4) Run:
+   py -3 -m venv .venv
+5) Then run:
+   .\.venv\Scripts\python.exe -m pip install --upgrade pip
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+6) Prepare the partitioned parquet store once:
+   .\.venv\Scripts\python.exe .\prepare_partitioned_ohlcv_store.py data_bootstrap\extracted --store-root data\ohlcv_store --derive 15m,1h,4h
+7) Start the main app stack:
+   .\start_all_windows.bat
+8) Start the separate backtest window when needed:
+   .\start_backtest_only.bat
+9) In the main UI:
+   - Chart timeframe = 5m
+   - Analysis timeframe = 1h
+   - Bootstrap candles = 300
+   - Leave Collector ON in background
+   - Turn OFF "Auto-refresh UI while live workers run" when you want to work manually in the main app without dimming
+10) In the Backtest Lab window:
+   - History folder = data\ohlcv_store
+   - Scan files
+   - Symbols = BTCUSDT first
+   - Entry TF = 5m
+   - Analysis TF = 1h
+   - Start with 7-30 days first, then widen
+11) Good debug rule:
+   - If backtests feel slow, use the partitioned parquet store, not the raw CSV folder.
+12) From now on the collector also appends fetched candles into data\ohlcv_store, so your local working history keeps growing automatically.
+
+
+Backtest worker
+- Start a separate batch worker with start_backtest_worker.bat
+- In Backtest Lab, select multiple strategies and click "Queue selected strategies"
+- The worker saves each strategy run separately and the UI can compare completed batches
+
+Partitioned store rebuild
+- If you already have partial data in data\ohlcv_store, rebuild from scratch with:
+  py -3 prepare_partitioned_ohlcv_store.py data_bootstrap\extracted --store-root data\ohlcv_store --derive 15m,1h,4h --reset-store
+- This importer now supports both monthly files like XRPUSDT-5m-2020-01.csv and daily files like XRPUSDT-5m-2026-04-04.csv
+
+
+What changed in this build
+- expanded backtest KPI set
+- score-decile performance block
+- counterfactual quick checks (HTF aligned, top quartile, score >= 85)
+- MFE/MAE scatter and better period tables
+
+
+New in this build:
+- true rerun what-if matrix (stop width, TP ladder, score threshold, confirm-bar entry)
+- queueable what-if matrix jobs in the separate backtest worker
+
+
+V22 quick additions
+- There is no separate Primary strategy field anymore. Use the single multi-select field: Strategies for backtest worker.
+- Direct run mode decides whether direct Run/What-if uses the first selected strategy or a bundle made from all selected strategies.
+- Use Saved backtests filters for Min PF / Min total PnL / Min trades before comparing.
+- Read docs/BABY_STEPS_V22.md for the full practice flow.

@@ -1,0 +1,30 @@
+V21 launch steps
+================
+
+1) Open PowerShell in the project folder.
+2) Install/update dependencies:
+
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+3) Start the worker:
+
+.\start_backtest_worker.bat
+
+4) Start the backtest app:
+
+.\start_backtest_only.bat
+
+If port 8503 is busy:
+
+.\.venv\Scripts\python.exe -m streamlit run .\backtest_app.py --server.port 8504
+
+5) In the app:
+- use Backtest Lab for runs, queue, what-if, save, compare
+- use Foundation Toolkit for bundles, exit families, validity audit, score calibration, and the feature tour
+
+6) Read:
+- docs\BABY_STEPS_V21.md
+- docs\USAGE_GUIDE_NEXT_FEATURES.md
+- docs\PRACTICE_CHECKLIST.md

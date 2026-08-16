@@ -1,0 +1,34 @@
+{
+  "zero_research": {
+    "label": "Zero friction / research only",
+    "fee_bps_per_side": 0.0,
+    "slippage_bps_per_side": 0.0,
+    "spread_bps": 0.0,
+    "funding_bps_per_8h": 0.0,
+    "notes": "Use only to understand raw strategy shape before costs. Do not treat as live realistic."
+  },
+  "binance_usdm_taker_light": {
+    "label": "Binance USD-M light taker estimate",
+    "fee_bps_per_side": 4.0,
+    "slippage_bps_per_side": 1.0,
+    "spread_bps": 1.0,
+    "funding_bps_per_8h": 0.0,
+    "notes": "Practical baseline for liquid pairs using market/taker style execution. Funding kept zero unless explicitly stress-tested."
+  },
+  "liquid_scalper_stress": {
+    "label": "Liquid scalper stress",
+    "fee_bps_per_side": 4.0,
+    "slippage_bps_per_side": 2.5,
+    "spread_bps": 2.0,
+    "funding_bps_per_8h": 0.0,
+    "notes": "Use for 1m/5m scalping strategies where small edges can disappear after fills."
+  },
+  "altcoin_conservative": {
+    "label": "Altcoin conservative",
+    "fee_bps_per_side": 4.0,
+    "slippage_bps_per_side": 5.0,
+    "spread_bps": 4.0,
+    "funding_bps_per_8h": 0.5,
+    "notes": "Stress preset for thinner pairs or higher-volatility periods."
+  }
+}

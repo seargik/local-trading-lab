@@ -1,0 +1,122 @@
+{
+  "packet_type": "local_lab_strategy_v1",
+  "exported_at": "2026-04-06T00:00:00Z",
+  "strategy": {
+    "strategy_name": "Market Maker Range Scalper",
+    "template_key": "rule_builder",
+    "human_thesis": "Fade range edges when liquidity looks one-sided and the market is not trending. Good for lower-timeframe scalp review when the higher timeframe is neutral.",
+    "expected_outcome": "Smaller repeatable moves from overextended local pushes back toward the range mid.",
+    "indicator_description": "Range-fade proxy using ADX, range position, z-score stretch, order-book imbalance, and liquidity sweeps.",
+    "indicators": [
+      "adx_14",
+      "range_position_20",
+      "range_zscore",
+      "order_book_imbalance",
+      "liquidity_sweep_low",
+      "liquidity_sweep_high",
+      "volume_spike",
+      "htf_alignment"
+    ],
+    "indicator_rules": [
+      {
+        "enabled": true,
+        "indicator": "adx_14",
+        "operator": "<=",
+        "value": 18,
+        "value_2": null,
+        "weight": 16,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "range_position_20",
+        "operator": "<=",
+        "value": 0.12,
+        "value_2": null,
+        "weight": 18,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "range_zscore",
+        "operator": "<=",
+        "value": -1.4,
+        "value_2": null,
+        "weight": 15,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "order_book_imbalance",
+        "operator": ">=",
+        "value": 0.12,
+        "value_2": null,
+        "weight": 10,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "liquidity_sweep_low",
+        "operator": "==",
+        "value": true,
+        "value_2": null,
+        "weight": 10,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "adx_14",
+        "operator": "<=",
+        "value": 18,
+        "value_2": null,
+        "weight": 16,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "range_position_20",
+        "operator": ">=",
+        "value": 0.88,
+        "value_2": null,
+        "weight": 18,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "range_zscore",
+        "operator": ">=",
+        "value": 1.4,
+        "value_2": null,
+        "weight": 15,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "order_book_imbalance",
+        "operator": "<=",
+        "value": -0.12,
+        "value_2": null,
+        "weight": 10,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "liquidity_sweep_high",
+        "operator": "==",
+        "value": true,
+        "value_2": null,
+        "weight": 10,
+        "bias": "SHORT"
+      }
+    ],
+    "rule_params": {
+      "score_threshold": 68,
+      "tp_mode": "structure",
+      "tp_count": 3,
+      "tp_late_trigger_ratio": 0.72
+    },
+    "expected_rr": "1:2.2",
+    "score_threshold": 68,
+    "notes": "Best tested with analysis TF 15m or 1h and chart TF 1m-5m."
+  }
+}

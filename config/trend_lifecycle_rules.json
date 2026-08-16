@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "notes": "Heuristic market-state router. Used as an explanation/fit layer first; do not use as a hard live gate until backtested.",
+  "thresholds": {
+    "trend_score_entering": 55,
+    "trend_score_running": 68,
+    "squeeze_score": 62,
+    "range_score": 58,
+    "panic_score": 70,
+    "adx_trend": 22,
+    "adx_strong": 30,
+    "rsi_overbought": 70,
+    "rsi_oversold": 30,
+    "range_upper": 0.8,
+    "range_lower": 0.2,
+    "late_extension_pct": 0.035,
+    "vwap_reclaim_near_pct": 0.012
+  },
+  "state_family_map": {
+    "no_trade_data_missing": {"allowed": [], "blocked": ["all"], "exit_family": "no_trade_gate"},
+    "range_chop": {"allowed": ["range_reversion", "mean_reversion", "market_maker_range"], "blocked": ["late_breakout_chase"], "exit_family": "range_scalp"},
+    "compression_building": {"allowed": ["compression_watch", "wait"], "blocked": ["range_reversion_aggressive", "late_trend_entry"], "exit_family": "no_trade_gate"},
+    "breakout_attempt": {"allowed": ["compression_breakout", "vwap_reclaim", "trend_entry"], "blocked": ["range_fade_against_breakout"], "exit_family": "breakout_balanced"},
+    "trend_entering": {"allowed": ["vwap_reclaim", "trend_pullback", "trend_following"], "blocked": ["countertrend_reversal"], "exit_family": "trend_runner"},
+    "trend_pullback_entry": {"allowed": ["htf_pullback", "vwap_reclaim", "rsi_regime", "trend_following"], "blocked": ["countertrend_scalp"], "exit_family": "trend_runner"},
+    "trend_running": {"allowed": ["trend_following", "hold_manage", "pullback_continuation"], "blocked": ["new_reversal_without_exhaustion"], "exit_family": "trend_runner"},
+    "trend_extended_late": {"allowed": ["manage_existing", "partial_profit", "exhaustion_watch"], "blocked": ["new_trend_chase"], "exit_family": "breakout_balanced"},
+    "trend_exhaustion": {"allowed": ["exhaustion_reversal", "liquidity_sweep_fade", "profit_protection"], "blocked": ["new_trend_chase"], "exit_family": "reversal_defensive"},
+    "liquidity_sweep_reversal_risk": {"allowed": ["liquidity_sweep_fade", "smc_sweep_reversal", "defensive_reversal"], "blocked": ["breakout_chase"], "exit_family": "reversal_defensive"},
+    "panic_volatility": {"allowed": ["no_trade", "defensive_reversal_only"], "blocked": ["scalp", "late_breakout_chase", "normal_pullback"], "exit_family": "no_trade_gate"}
+  }
+}

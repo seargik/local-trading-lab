@@ -1,0 +1,777 @@
+{
+  "packet_type": "strategy_lab_strategy_v1",
+  "exported_at": "2026-04-02T13:00:53.842477+00:00",
+  "field_impact_guide": [
+    {
+      "field": "strategy_name",
+      "impacts_live_logic": false,
+      "notes": "Human label only."
+    },
+    {
+      "field": "human_thesis",
+      "impacts_live_logic": false,
+      "notes": "Research context for you and LLM review."
+    },
+    {
+      "field": "expected_outcome",
+      "impacts_live_logic": false,
+      "notes": "Research expectation only."
+    },
+    {
+      "field": "indicator_description",
+      "impacts_live_logic": false,
+      "notes": "Reasoning notes only."
+    },
+    {
+      "field": "template_key",
+      "impacts_live_logic": true,
+      "notes": "Selects the scoring engine."
+    },
+    {
+      "field": "indicators",
+      "impacts_live_logic": false,
+      "notes": "Documentation / export context unless also referenced in rules or params."
+    },
+    {
+      "field": "indicator_rules",
+      "impacts_live_logic": true,
+      "notes": "Directly changes rule-based scoring."
+    },
+    {
+      "field": "rule_params",
+      "impacts_live_logic": true,
+      "notes": "Directly changes thresholds, weights, and overlays."
+    },
+    {
+      "field": "expected_rr",
+      "impacts_live_logic": true,
+      "notes": "Changes auto-paper trade SL/TP construction."
+    },
+    {
+      "field": "score_threshold",
+      "impacts_live_logic": true,
+      "notes": "Controls when a setup becomes actionable."
+    },
+    {
+      "field": "notes",
+      "impacts_live_logic": false,
+      "notes": "Journal / context only."
+    }
+  ],
+  "available_kpis": [
+    {
+      "indicator": "close",
+      "category": "OHLCV main TF",
+      "what_it_is": "Latest close on the main timeframe.",
+      "formula": "Current candle close.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "open",
+      "category": "OHLCV main TF",
+      "what_it_is": "Latest open on the main timeframe.",
+      "formula": "Current candle open.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "high",
+      "category": "OHLCV main TF",
+      "what_it_is": "Latest high on the main timeframe.",
+      "formula": "Current candle high.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "low",
+      "category": "OHLCV main TF",
+      "what_it_is": "Latest low on the main timeframe.",
+      "formula": "Current candle low.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "volume",
+      "category": "OHLCV main TF",
+      "what_it_is": "Latest traded volume.",
+      "formula": "Current candle volume.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "returns_1",
+      "category": "Price change",
+      "what_it_is": "1-bar percentage return.",
+      "formula": "close / previous_close - 1.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "returns_20",
+      "category": "Price change",
+      "what_it_is": "20-bar percentage return.",
+      "formula": "close / close_20_bars_ago - 1.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "rsi_14",
+      "category": "Momentum",
+      "what_it_is": "14-period Relative Strength Index.",
+      "formula": "Wilder-style RSI over close with length 14.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "atr_14",
+      "category": "Volatility",
+      "what_it_is": "14-period Average True Range.",
+      "formula": "EMA-like average of true range over 14 bars.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "atr_pct",
+      "category": "Volatility",
+      "what_it_is": "ATR expressed as a fraction of price.",
+      "formula": "atr_14 / close.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "adx_14",
+      "category": "Trend strength",
+      "what_it_is": "14-period ADX showing directional trend strength.",
+      "formula": "Wilder-style ADX from +DI and -DI over 14 bars.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "vwap_session",
+      "category": "Mean / fair value",
+      "what_it_is": "Running session VWAP proxy from available bars.",
+      "formula": "Cumulative typical_price * volume / cumulative volume.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "ema_20",
+      "category": "Trend",
+      "what_it_is": "20-period exponential moving average.",
+      "formula": "EMA(close, 20).",
+      "data_type": "number"
+    },
+    {
+      "indicator": "ema_50",
+      "category": "Trend",
+      "what_it_is": "50-period exponential moving average.",
+      "formula": "EMA(close, 50).",
+      "data_type": "number"
+    },
+    {
+      "indicator": "ma_200",
+      "category": "Trend",
+      "what_it_is": "200-period simple moving average.",
+      "formula": "SMA(close, 200).",
+      "data_type": "number"
+    },
+    {
+      "indicator": "distance_to_ma200_pct",
+      "category": "Trend",
+      "what_it_is": "Distance from price to 200 MA.",
+      "formula": "(close - ma_200) / ma_200.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "bb_width_pct",
+      "category": "Volatility",
+      "what_it_is": "Bollinger-band width as a fraction of price.",
+      "formula": "(bb_upper - bb_lower) / close using SMA20 and 2 stdev.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "trend_distance_pct",
+      "category": "Trend",
+      "what_it_is": "Distance from price to EMA50.",
+      "formula": "(close - ema_50) / ema_50.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "range_zscore",
+      "category": "Range / mean reversion",
+      "what_it_is": "Distance from SMA20 measured in 20-bar standard deviations.",
+      "formula": "(close - sma_20) / std_20.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "range_position_20",
+      "category": "Range / mean reversion",
+      "what_it_is": "Where the close sits inside the last 20-bar range.",
+      "formula": "(close - rolling_low_20) / (rolling_high_20 - rolling_low_20).",
+      "data_type": "number"
+    },
+    {
+      "indicator": "market_structure",
+      "category": "Structure",
+      "what_it_is": "Simple swing-structure label.",
+      "formula": "Compares recent rolling swing highs and lows to label HH/HL, LH/LL, mixed, etc.",
+      "data_type": "label/string"
+    },
+    {
+      "indicator": "volume_ma_20",
+      "category": "Volume",
+      "what_it_is": "20-bar average volume.",
+      "formula": "SMA(volume, 20).",
+      "data_type": "number"
+    },
+    {
+      "indicator": "volume_ratio",
+      "category": "Volume",
+      "what_it_is": "Current volume relative to recent average.",
+      "formula": "volume / volume_ma_20.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "volume_spike",
+      "category": "Volume",
+      "what_it_is": "Boolean high-volume flag.",
+      "formula": "volume_ratio >= 1.8.",
+      "data_type": "boolean"
+    },
+    {
+      "indicator": "slope_pct_10",
+      "category": "Trend slope",
+      "what_it_is": "10-bar EMA50 slope in percent.",
+      "formula": "(ema_50 / ema_50.shift(10) - 1) * 100.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "bullish_divergence",
+      "category": "Momentum / divergence",
+      "what_it_is": "Boolean bullish RSI divergence proxy.",
+      "formula": "Price makes a lower low while RSI makes a higher low inside the lookback window.",
+      "data_type": "boolean"
+    },
+    {
+      "indicator": "bearish_divergence",
+      "category": "Momentum / divergence",
+      "what_it_is": "Boolean bearish RSI divergence proxy.",
+      "formula": "Price makes a higher high while RSI makes a lower high inside the lookback window.",
+      "data_type": "boolean"
+    },
+    {
+      "indicator": "liquidity_sweep_high",
+      "category": "Liquidity / SMC proxy",
+      "what_it_is": "Sweep of prior highs with close back below the level.",
+      "formula": "high > prior rolling high and close < prior rolling high.",
+      "data_type": "boolean"
+    },
+    {
+      "indicator": "liquidity_sweep_low",
+      "category": "Liquidity / SMC proxy",
+      "what_it_is": "Sweep of prior lows with close back above the level.",
+      "formula": "low < prior rolling low and close > prior rolling low.",
+      "data_type": "boolean"
+    },
+    {
+      "indicator": "order_book_imbalance",
+      "category": "Order book",
+      "what_it_is": "Best-level order-book pressure proxy.",
+      "formula": "(bid_size - ask_size) / (bid_size + ask_size), from snapshot feed.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "order_book_spread_bps",
+      "category": "Order book",
+      "what_it_is": "Bid/ask spread in basis points.",
+      "formula": "(best_ask - best_bid) / mid_price * 10000.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "funding_rate",
+      "category": "Derivatives",
+      "what_it_is": "Latest funding rate from the exchange.",
+      "formula": "Exchange-provided funding rate snapshot.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "open_interest",
+      "category": "Derivatives",
+      "what_it_is": "Latest open interest level from the exchange.",
+      "formula": "Exchange-provided open interest snapshot.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "open_interest_value",
+      "category": "Derivatives",
+      "what_it_is": "Open-interest history aligned to recent bars.",
+      "formula": "Exchange-provided OI history padded/aligned to candle frame.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "open_interest_zscore_20",
+      "category": "Derivatives",
+      "what_it_is": "Open-interest stretch versus its recent average.",
+      "formula": "Z-score of open_interest_value over 20 bars.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "best_bid",
+      "category": "Order book",
+      "what_it_is": "Best bid from the latest snapshot.",
+      "formula": "Exchange-provided best bid.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "best_ask",
+      "category": "Order book",
+      "what_it_is": "Best ask from the latest snapshot.",
+      "formula": "Exchange-provided best ask.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "bullish_count",
+      "category": "HTF context",
+      "what_it_is": "Count of higher timeframes labeled bullish/up.",
+      "formula": "Number of HTF rows with trend = up.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "bearish_count",
+      "category": "HTF context",
+      "what_it_is": "Count of higher timeframes labeled bearish/down.",
+      "formula": "Number of HTF rows with trend = down.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "local_trend",
+      "category": "Trend labels",
+      "what_it_is": "Simple local trend label.",
+      "formula": "up if ema_20 > ema_50 and slope_pct_10 > 0; down if opposite; else mixed.",
+      "data_type": "label/string"
+    },
+    {
+      "indicator": "global_trend",
+      "category": "Trend labels",
+      "what_it_is": "Longer-horizon trend label.",
+      "formula": "above_ma200 if close > ma_200, below_ma200 if close < ma_200, else mixed.",
+      "data_type": "label/string"
+    },
+    {
+      "indicator": "htf_alignment",
+      "category": "HTF context",
+      "what_it_is": "Combined HTF directional consensus.",
+      "formula": "bullish if bullish HTF count > bearish count, bearish if opposite, else mixed.",
+      "data_type": "label/string"
+    },
+    {
+      "indicator": "htf_15m_trend",
+      "category": "OHLCV HTF",
+      "what_it_is": "15m trend label.",
+      "formula": "From 15m context row: up if ema_20 > ema_50 else down.",
+      "data_type": "label/string"
+    },
+    {
+      "indicator": "htf_15m_close",
+      "category": "OHLCV HTF",
+      "what_it_is": "15m latest close.",
+      "formula": "Latest close from 15m HTF frame.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "htf_15m_rsi_14",
+      "category": "OHLCV HTF",
+      "what_it_is": "15m RSI14.",
+      "formula": "RSI14 calculated on 15m close.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "htf_15m_adx_14",
+      "category": "OHLCV HTF",
+      "what_it_is": "15m ADX14.",
+      "formula": "ADX14 calculated on 15m candles.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "htf_15m_atr_pct",
+      "category": "OHLCV HTF",
+      "what_it_is": "15m ATR%.",
+      "formula": "ATR14 / close on 15m frame.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "htf_1h_trend",
+      "category": "OHLCV HTF",
+      "what_it_is": "1h trend label.",
+      "formula": "From 1h context row: up if ema_20 > ema_50 else down.",
+      "data_type": "label/string"
+    },
+    {
+      "indicator": "htf_1h_close",
+      "category": "OHLCV HTF",
+      "what_it_is": "1h latest close.",
+      "formula": "Latest close from 1h HTF frame.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "htf_1h_rsi_14",
+      "category": "OHLCV HTF",
+      "what_it_is": "1h RSI14.",
+      "formula": "RSI14 calculated on 1h close.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "htf_1h_adx_14",
+      "category": "OHLCV HTF",
+      "what_it_is": "1h ADX14.",
+      "formula": "ADX14 calculated on 1h candles.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "htf_1h_atr_pct",
+      "category": "OHLCV HTF",
+      "what_it_is": "1h ATR%.",
+      "formula": "ATR14 / close on 1h frame.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "htf_4h_trend",
+      "category": "OHLCV HTF",
+      "what_it_is": "4h trend label.",
+      "formula": "From 4h context row: up if ema_20 > ema_50 else down.",
+      "data_type": "label/string"
+    },
+    {
+      "indicator": "htf_4h_close",
+      "category": "OHLCV HTF",
+      "what_it_is": "4h latest close.",
+      "formula": "Latest close from 4h HTF frame.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "htf_4h_rsi_14",
+      "category": "OHLCV HTF",
+      "what_it_is": "4h RSI14.",
+      "formula": "RSI14 calculated on 4h close.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "htf_4h_adx_14",
+      "category": "OHLCV HTF",
+      "what_it_is": "4h ADX14.",
+      "formula": "ADX14 calculated on 4h candles.",
+      "data_type": "number"
+    },
+    {
+      "indicator": "htf_4h_atr_pct",
+      "category": "OHLCV HTF",
+      "what_it_is": "4h ATR%.",
+      "formula": "ATR14 / close on 4h frame.",
+      "data_type": "number"
+    }
+  ],
+  "indicator_rule_syntax": {
+    "supported_operators": [
+      ">",
+      ">=",
+      "<",
+      "<=",
+      "==",
+      "!=",
+      "between",
+      "contains",
+      "true",
+      "false"
+    ],
+    "value_examples": [
+      {
+        "indicator": "rsi_14",
+        "operator": ">=",
+        "value": 55
+      },
+      {
+        "indicator": "ema_20",
+        "operator": ">",
+        "value": "ema_50"
+      },
+      {
+        "indicator": "htf_1h_trend",
+        "operator": "==",
+        "value": "up"
+      },
+      {
+        "indicator": "volume_spike",
+        "operator": "==",
+        "value": true
+      },
+      {
+        "indicator": "rsi_14",
+        "operator": "between",
+        "value": 45,
+        "value_2": 68
+      }
+    ],
+    "indicator_name_syntax": {
+      "main_tf": "plain indicator name such as rsi_14 or ema_20",
+      "htf": "htf_<timeframe>_<field>, for example htf_1h_rsi_14 or htf_4h_trend",
+      "comparisons": "use another indicator name in the value field for comparisons such as ema_20 > ema_50"
+    },
+    "new_indicator_definition_template": {
+      "indicator": "new_indicator_name",
+      "category": "Momentum | Trend | Volatility | Order book | Derivatives | HTF context | SMC proxy",
+      "data_type": "number | boolean | label/string",
+      "formula": "Write the exact calculation formula or detection logic",
+      "source_fields": [
+        "close",
+        "high",
+        "low",
+        "volume"
+      ],
+      "timeframe_scope": "main_tf | htf_15m | htf_1h | htf_4h",
+      "why_it_matters": "What edge or filter it adds"
+    }
+  },
+  "suggested_future_kpis": [
+    {
+      "indicator": "htf_1d_trend",
+      "why_add": "Useful for lower timeframe filtering so trades align with daily direction."
+    },
+    {
+      "indicator": "swing_high_distance_pct",
+      "why_add": "Useful for breakout / SMC style entries and liquidity targets."
+    },
+    {
+      "indicator": "swing_low_distance_pct",
+      "why_add": "Useful for risk placement and downside liquidity context."
+    },
+    {
+      "indicator": "session_range_expansion_pct",
+      "why_add": "Good for breakout continuation and intraday volatility regime."
+    },
+    {
+      "indicator": "fvg_bullish / fvg_bearish",
+      "why_add": "Helpful as an SMC-style imbalance proxy."
+    },
+    {
+      "indicator": "wave_leg_ratio_proxy",
+      "why_add": "A practical alternative to full Elliott counting: compare current impulse/retrace ratios."
+    },
+    {
+      "indicator": "delta_volume_proxy",
+      "why_add": "Can improve breakout and absorption reads when true order-flow data is unavailable."
+    },
+    {
+      "indicator": "liquidation_spike_proxy",
+      "why_add": "Helps catch squeeze / flush conditions in perp markets."
+    }
+  ],
+  "expected_ai_answer_format": {
+    "summary": "What should change and why",
+    "keep": [
+      "What should stay unchanged"
+    ],
+    "change_requests": [
+      {
+        "field": "human_thesis | expected_outcome | template_key | expected_rr | score_threshold | indicator_rules | rule_params | indicators",
+        "reason": "Why to change it",
+        "proposed_value": "New value or object"
+      }
+    ],
+    "new_indicator_requests": [
+      {
+        "indicator": "name",
+        "why_needed": "What edge it adds",
+        "formula_or_definition": "How to calculate it"
+      }
+    ],
+    "final_check": "State whether the revised strategy is trend, range, breakout, or observation oriented"
+  },
+  "instructions": [
+    "Use only fields listed in the strategy object when proposing revisions.",
+    "Keep the answer structured using the expected_ai_answer_format object.",
+    "If you suggest new KPIs, explain the formula and why they matter.",
+    "Do not assume hidden code changes; propose values that can be pasted back into Strategy Lab."
+  ],
+  "strategy": {
+    "strategy_id": 1001,
+    "version_id": 1001,
+    "version_no": 1,
+    "created_at": "2026-04-02 13:00:53.842497",
+    "strategy_name": "Smart Money Sweep Reversal",
+    "template_key": "rule_builder",
+    "human_thesis": "Fade liquidity sweeps back into higher-timeframe alignment when order-book pressure and divergence support the reversal.",
+    "expected_outcome": "Catch reversals after stop-hunts or liquidity grabs rather than chasing late breakouts.",
+    "indicator_description": "SMC proxy using available KPIs only: liquidity sweeps, order-book imbalance, HTF alignment, divergence, range location, and open-interest stretch.",
+    "indicators": [
+      "liquidity_sweep_low",
+      "liquidity_sweep_high",
+      "order_book_imbalance",
+      "volume_spike",
+      "htf_alignment",
+      "open_interest_zscore_20",
+      "bullish_divergence",
+      "bearish_divergence",
+      "range_position_20",
+      "market_structure",
+      "fvg_bullish",
+      "fvg_bearish",
+      "bos_bullish",
+      "bos_bearish",
+      "choch_bullish",
+      "choch_bearish",
+      "premium_discount_zone",
+      "order_block_bullish_proxy",
+      "order_block_bearish_proxy",
+      "short_squeeze_risk",
+      "long_squeeze_risk"
+    ],
+    "indicator_rules": [
+      {
+        "enabled": true,
+        "indicator": "liquidity_sweep_low",
+        "operator": "==",
+        "value": true,
+        "value_2": null,
+        "weight": 22.0,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "bullish_divergence",
+        "operator": "==",
+        "value": true,
+        "value_2": null,
+        "weight": 15.0,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "order_book_imbalance",
+        "operator": ">=",
+        "value": 0.1,
+        "value_2": null,
+        "weight": 12.0,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "volume_spike",
+        "operator": "==",
+        "value": true,
+        "value_2": null,
+        "weight": 10.0,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "htf_alignment",
+        "operator": "==",
+        "value": "bullish",
+        "value_2": null,
+        "weight": 11.0,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "range_position_20",
+        "operator": "<=",
+        "value": 0.25,
+        "value_2": null,
+        "weight": 8.0,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "open_interest_zscore_20",
+        "operator": ">=",
+        "value": 0.5,
+        "value_2": null,
+        "weight": 6.0,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "market_structure",
+        "operator": "contains",
+        "value": "higher",
+        "value_2": null,
+        "weight": 6.0,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "liquidity_sweep_high",
+        "operator": "==",
+        "value": true,
+        "value_2": null,
+        "weight": 22.0,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "bearish_divergence",
+        "operator": "==",
+        "value": true,
+        "value_2": null,
+        "weight": 15.0,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "order_book_imbalance",
+        "operator": "<=",
+        "value": -0.1,
+        "value_2": null,
+        "weight": 12.0,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "volume_spike",
+        "operator": "==",
+        "value": true,
+        "value_2": null,
+        "weight": 10.0,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "htf_alignment",
+        "operator": "==",
+        "value": "bearish",
+        "value_2": null,
+        "weight": 11.0,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "range_position_20",
+        "operator": ">=",
+        "value": 0.75,
+        "value_2": null,
+        "weight": 8.0,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "open_interest_zscore_20",
+        "operator": ">=",
+        "value": 0.5,
+        "value_2": null,
+        "weight": 6.0,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "market_structure",
+        "operator": "contains",
+        "value": "lower",
+        "value_2": null,
+        "weight": 6.0,
+        "bias": "SHORT"
+      }
+    ],
+    "rule_params": {
+      "score_threshold": 70,
+      "sweep_weight": 30,
+      "divergence_weight": 20,
+      "orderbook_weight": 15,
+      "htf_weight": 15,
+      "oi_weight": 10,
+      "structure_weight": 10,
+      "rule_overlay_weight": 100
+    },
+    "expected_rr": "1:3",
+    "score_threshold": 70.0,
+    "notes": "Practical SMC proxy for the current app. Uses only available KPIs from the template packet; no hidden code changes assumed. Good first import candidate. Augmented with newer Local Lab KPI context."
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "default": {
+    "fold_count": 3,
+    "min_days_per_fold": 14,
+    "max_symbols": 6,
+    "include_source_baseline": true,
+    "notes": "Balanced first-pass CV. Use this before saving a promoted draft as a real strategy version."
+  },
+  "fast_smoke": {
+    "fold_count": 2,
+    "min_days_per_fold": 7,
+    "max_symbols": 3,
+    "include_source_baseline": true,
+    "notes": "Quick runtime check with fewer tasks."
+  },
+  "strict_promotion": {
+    "fold_count": 5,
+    "min_days_per_fold": 21,
+    "max_symbols": 10,
+    "include_source_baseline": true,
+    "notes": "Stricter validation before manually saving a draft strategy version."
+  }
+}

@@ -1,0 +1,30 @@
+LOCAL LAB V22 — launch steps
+
+1) Unzip the package.
+2) Open PowerShell in the project folder.
+3) Install / update dependencies:
+   py -3 -m venv .venv
+   .\.venv\Scripts\python.exe -m pip install --upgrade pip
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+4) Start the backtest worker:
+   .\start_backtest_worker.bat
+
+5) Start the separate backtest app:
+   .\start_backtest_only.bat
+
+6) If port 8503 is busy, run:
+   .\.venv\Scripts\python.exe -m streamlit run .\backtest_app.py --server.port 8504
+
+7) Optional main app:
+   .\start_all_windows.bat
+
+Recommended history folder in Backtest Lab:
+- data\ohlcv_store
+
+Key V22 updates:
+- primary strategy field removed
+- one strategy selector used for direct runs, batch jobs, and bundle runs
+- executable bundle consensus mode in Backtest Lab
+- saved run filters for min profit factor / min pnl / min trades
+- updated default backtest + what-if JSONs

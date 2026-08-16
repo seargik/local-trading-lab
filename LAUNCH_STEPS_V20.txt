@@ -1,0 +1,37 @@
+LOCAL LAB V20 FOUNDATION TOOLKIT
+
+What is new in this package:
+- one_trade_at_time works per symbol + direction + strategy run
+- strategy validity audit script
+- score calibration / long-short / regime report script
+- bundle strategy example templates
+- exit-family template file
+- usage docs in docs\
+
+Launch app:
+1) Create/update venv
+   py -3 -m venv .venv
+   .\.venv\Scripts\python.exe -m pip install --upgrade pip
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+2) Start worker
+   .\start_backtest_worker.bat
+
+3) Start backtest app
+   .\start_backtest_only.bat
+
+If port 8503 is busy:
+   .\.venv\Scripts\python.exe -m streamlit run .\backtest_app.py --server.port 8504
+
+Useful helper scripts:
+- Strategy validity audit:
+  .\.venv\Scripts\python.exe .\audit_strategy_validity.py
+
+- Saved run score calibration / side-regime report:
+  .\.venv\Scripts\python.exe .\score_calibration_report.py --saved-runs-root data\backtests --out-dir analysis_reports
+
+Read these files next:
+- docs\USAGE_GUIDE_NEXT_FEATURES.md
+- docs\PRACTICE_CHECKLIST.md
+- config\bundle_strategy_examples.json
+- config\exit_family_templates.json

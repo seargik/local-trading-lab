@@ -1,0 +1,15 @@
+{
+  "name": "local-trading-lab",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "forwardPorts": [8501, 8503],
+  "portsAttributes": {
+    "8501": {"label": "Main Streamlit app", "onAutoForward": "notify"},
+    "8503": {"label": "Backtest Lab", "onAutoForward": "notify"}
+  },
+  "postCreateCommand": "python -m pip install --upgrade pip && python -m pip install -r requirements.txt",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "ms-python.vscode-pylance"]
+    }
+  }
+}

@@ -1,0 +1,37 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Streamlit secrets / local config
+.streamlit/secrets.toml
+
+# Local runtime data - do not commit personal/backtest history
+/data/ohlcv_store/
+/data/backtests/
+/data/backtest_jobs/
+/data/backtest_reviews/
+/data/*.sqlite
+/data/*.db
+/logs/*.log
+
+# Bootstrap/raw data exports
+/data_bootstrap/
+*.parquet
+*.csv
+
+# Temporary/debug files
+tmp_*.sqlite
+*.tmp
+*.bak
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

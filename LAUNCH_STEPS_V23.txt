@@ -1,0 +1,27 @@
+LAUNCH STEPS — V23
+
+1. Open PowerShell in the project folder.
+
+2. Install/update dependencies:
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+3. Start backtest worker:
+.\start_backtest_worker.bat
+
+4. Start backtest app:
+.\start_backtest_only.bat
+
+5. If port 8503 is busy:
+.\.venv\Scripts\python.exe -m streamlit run .\backtest_app.py --server.port 8504
+
+6. In Backtest Lab:
+- set History folder to data/ohlcv_store
+- click Scan files
+
+7. Open docs:
+- docs/HANDOVER_V23.md
+- docs/BABY_STEPS_V23.md
+- docs/KNOWN_ISSUES_V23.md
+- docs/NEW_CHAT_PROMPT_V23.txt

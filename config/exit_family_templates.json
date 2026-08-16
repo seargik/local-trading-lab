@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "exit_families": {
+    "trend_runner": {
+      "tp1_fraction": 0.15,
+      "tp1_distance_hint": "later",
+      "runner_bias": "high",
+      "trail_activation": "late",
+      "notes": "Use for HTF Pullback, VWAP Reclaim, Trend Following, Elliott."
+    },
+    "breakout_balanced": {
+      "tp1_fraction": 0.25,
+      "tp1_distance_hint": "medium",
+      "runner_bias": "medium",
+      "trail_activation": "medium",
+      "notes": "Use for Compression Breakout and momentum continuation families."
+    },
+    "range_scalp": {
+      "tp1_fraction": 0.4,
+      "tp1_distance_hint": "earlier",
+      "runner_bias": "low",
+      "trail_activation": "early",
+      "notes": "Use for Range Rotation and Market Maker Range."
+    },
+    "reversal_defensive": {
+      "tp1_fraction": 0.35,
+      "tp1_distance_hint": "earlier",
+      "runner_bias": "low_to_medium",
+      "trail_activation": "early",
+      "notes": "Use for Smart Money Sweep and exhaustion-style reversals."
+    }
+  }
+}

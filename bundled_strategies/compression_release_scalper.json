@@ -1,0 +1,159 @@
+{
+  "packet_type": "local_lab_strategy_v1",
+  "exported_at": "2026-04-06T00:00:00Z",
+  "strategy": {
+    "strategy_name": "Compression Release Scalper",
+    "template_key": "rule_builder",
+    "human_thesis": "Watch for tight compression and then join the first clean expansion when trend and order flow agree.",
+    "expected_outcome": "Quick momentum trades after low-volatility squeeze conditions break.",
+    "indicator_description": "Compression-to-expansion proxy using BB width, ATR, ADX reset, volume spike, OI z-score, and order-book pressure.",
+    "indicators": [
+      "bb_width_pct",
+      "atr_pct",
+      "adx_14",
+      "volume_spike",
+      "open_interest_zscore_20",
+      "order_book_imbalance",
+      "htf_alignment",
+      "close",
+      "ema_20"
+    ],
+    "indicator_rules": [
+      {
+        "enabled": true,
+        "indicator": "bb_width_pct",
+        "operator": "<=",
+        "value": 0.035,
+        "value_2": null,
+        "weight": 14,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "atr_pct",
+        "operator": "<=",
+        "value": 0.02,
+        "value_2": null,
+        "weight": 10,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "volume_spike",
+        "operator": "==",
+        "value": true,
+        "value_2": null,
+        "weight": 12,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "open_interest_zscore_20",
+        "operator": ">=",
+        "value": 0.5,
+        "value_2": null,
+        "weight": 10,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "order_book_imbalance",
+        "operator": ">=",
+        "value": 0.1,
+        "value_2": null,
+        "weight": 10,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "htf_alignment",
+        "operator": "==",
+        "value": "bullish",
+        "value_2": null,
+        "weight": 12,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "close",
+        "operator": ">=",
+        "value": "ema_20",
+        "value_2": null,
+        "weight": 10,
+        "bias": "LONG"
+      },
+      {
+        "enabled": true,
+        "indicator": "bb_width_pct",
+        "operator": "<=",
+        "value": 0.035,
+        "value_2": null,
+        "weight": 14,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "atr_pct",
+        "operator": "<=",
+        "value": 0.02,
+        "value_2": null,
+        "weight": 10,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "volume_spike",
+        "operator": "==",
+        "value": true,
+        "value_2": null,
+        "weight": 12,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "open_interest_zscore_20",
+        "operator": ">=",
+        "value": 0.5,
+        "value_2": null,
+        "weight": 10,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "order_book_imbalance",
+        "operator": "<=",
+        "value": -0.1,
+        "value_2": null,
+        "weight": 10,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "htf_alignment",
+        "operator": "==",
+        "value": "bearish",
+        "value_2": null,
+        "weight": 12,
+        "bias": "SHORT"
+      },
+      {
+        "enabled": true,
+        "indicator": "close",
+        "operator": "<=",
+        "value": "ema_20",
+        "value_2": null,
+        "weight": 10,
+        "bias": "SHORT"
+      }
+    ],
+    "rule_params": {
+      "score_threshold": 70,
+      "tp_mode": "equal_rr",
+      "tp_count": 3,
+      "tp_late_trigger_ratio": 0.67
+    },
+    "expected_rr": "1:2.4",
+    "score_threshold": 70,
+    "notes": "Great for testing breakout behavior after quiet periods; pair with a lower chart timeframe."
+  }
+}

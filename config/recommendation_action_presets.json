@@ -1,0 +1,32 @@
+{
+  "balanced": {
+    "description": "Queue only clear threshold-test recommendations with enough segment evidence.",
+    "max_recommendations_per_run": 5,
+    "allowed_actions": ["test_score_threshold"],
+    "threshold_offsets": [-5, 0, 5],
+    "include_segment_baseline": true,
+    "include_full_run_baseline": false,
+    "min_segment_trades": 20,
+    "min_kept_trades": 8
+  },
+  "exploratory": {
+    "description": "Queue more recommendations, useful when sample sizes are still small.",
+    "max_recommendations_per_run": 10,
+    "allowed_actions": ["test_score_threshold", "score_not_separating_edge_check_features", "baseline_ok_do_not_overfilter"],
+    "threshold_offsets": [-10, -5, 0, 5, 10],
+    "include_segment_baseline": true,
+    "include_full_run_baseline": true,
+    "min_segment_trades": 8,
+    "min_kept_trades": 3
+  },
+  "strict": {
+    "description": "Queue only the strongest evidence segments.",
+    "max_recommendations_per_run": 3,
+    "allowed_actions": ["test_score_threshold"],
+    "threshold_offsets": [0],
+    "include_segment_baseline": true,
+    "include_full_run_baseline": false,
+    "min_segment_trades": 50,
+    "min_kept_trades": 20
+  }
+}

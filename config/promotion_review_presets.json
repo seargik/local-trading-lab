@@ -1,0 +1,33 @@
+{
+  "version": "V27",
+  "default_min_candidate_trades": 20,
+  "review_decisions": [
+    {
+      "decision": "promote_candidate",
+      "meaning": "Candidate improved the source run enough to draft a new strategy version for manual review."
+    },
+    {
+      "decision": "watchlist",
+      "meaning": "Candidate is interesting but not strong enough to promote yet. Keep comparing across more symbols or ranges."
+    },
+    {
+      "decision": "more_data",
+      "meaning": "Candidate has too few trades or too narrow a segment. Collect more evidence before changing strategy settings."
+    },
+    {
+      "decision": "repair",
+      "meaning": "Candidate indicates rules/segment are broken, too strict, or structurally weak. Repair logic rather than tune threshold only."
+    },
+    {
+      "decision": "reject",
+      "meaning": "Candidate underperformed the source run. Do not promote."
+    }
+  ],
+  "promotion_guardrails": [
+    "Do not auto-apply to live scanner.",
+    "Do not overwrite existing strategy versions.",
+    "Use strategy draft JSON as a manual input to the Strategy Library editor.",
+    "Prefer side/regime-specific evidence over blended PnL.",
+    "Require enough trades before promotion."
+  ]
+}
