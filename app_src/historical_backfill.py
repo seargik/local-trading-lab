@@ -12,7 +12,8 @@ import requests
 from .ohlcv_store import append_candles, load_recent_candles, load_range
 from .settings import BINANCE_FUTURES_REST, OHLCV_STORE_ROOT
 
-BINANCE_KLINE_LIMIT = 1500
+# Binance USD-M futures connector documents /fapi/v1/klines with default 500, max 1000.
+BINANCE_KLINE_LIMIT = 1000
 
 
 @dataclass
