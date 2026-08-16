@@ -18,5 +18,7 @@ jobs:
           python -m pip install -r requirements.txt
       - name: Compile source
         run: python -m compileall app.py backtest_app.py backtest_worker.py app_src
-      - name: Run repo smoke test
-        run: python smoke_test_v28_4_repo_ready.py
+      - name: Run repo smoke tests
+        run: |
+          python smoke_test_v28_4_repo_ready.py
+          python smoke_test_v28_5_demo_lifecycle_fit.py

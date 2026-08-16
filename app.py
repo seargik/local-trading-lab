@@ -38,6 +38,7 @@ from app_src.strategies import TEMPLATE_OPTIONS
 from app_src.backtest_ui import render_backtest_tab
 from app_src.ohlcv_store import load_range as load_range_from_store
 from app_src.trend_lifecycle import classify_analysis_map
+from app_src.demo_mode import run_demo_scanner
 
 st.set_page_config(page_title=APP_NAME, layout="wide")
 
@@ -483,6 +484,7 @@ def init_state() -> None:
         st.session_state.timeframe = st.session_state.analysis_timeframe
         st.session_state.auto_paper_mode = config.get("auto_paper_mode", False)
         st.session_state.live_bundle_mode = config.get("live_bundle_mode", False)
+        st.session_state.demo_mode = bool(config.get("demo_mode", False))
         st.session_state.lookback = int(config.get("lookback", DEFAULT_LOOKBACK))
         st.session_state.poll_seconds = int(config.get("poll_seconds", 300))
         st.session_state.config_loaded = True
@@ -500,6 +502,7 @@ def save_current_config() -> None:
             "chart_timeframe": st.session_state.chart_timeframe,
             "auto_paper_mode": st.session_state.auto_paper_mode,
             "live_bundle_mode": st.session_state.get("live_bundle_mode", False),
+            "demo_mode": st.session_state.get("demo_mode", False),
             "lookback": st.session_state.get("lookback", DEFAULT_LOOKBACK),
             "poll_seconds": st.session_state.get("poll_seconds", 300),
         }
@@ -724,7 +727,10 @@ def main() -> None:
         search = st.text_input("Filter pairs", value="")
         st.session_state.auto_paper_mode = st.toggle("Auto-paper trade mode", value=st.session_state.auto_paper_mode, help="When on, every directional qualifying signal becomes a paper trade candidate. Decision starts as SKIPPED until you review it.")
         st.session_state.live_bundle_mode = st.toggle("Live bundle presets", value=st.session_state.get("live_bundle_mode", False), help="When on, the analyzer evaluates config/live_bundle_presets.json as separate bundle trade owners. Off by default for safe rollout.")
+        st.session_state.demo_mode = st.toggle("Demo mode / sample data", value=st.session_state.get("demo_mode", False), help="Use synthetic ETH/BTC/SOL candles so the browser/Codespaces UI can be tested without a collector or private OHLCV store.")
         st.session_state.ui_auto_refresh = st.toggle("Auto-refresh UI while live workers run", value=st.session_state.get("ui_auto_refresh", True), help="Turn this off when you want to work in the main UI without Streamlit refreshing every minute. The collector/analyzer can keep running in the background.")
+        if st.session_state.get("demo_mode", False):
+            st.info("Demo mode is ON: scanner rows are generated from synthetic sample candles. Collector/worker runtime data is not used for the main scanner view.")
 
         try:
             available = load_available_symbols()
@@ -837,14 +843,31 @@ def main() -> None:
     analyzer_status = analyzer.get_status()
     slot_rows = normalize_slot_rows(storage.get_active_slots())
     scanner_rows, analysis_map, score_map, analysis_ran = get_cached_or_run_analysis(storage, st.session_state.analysis_timeframe, st.session_state.selected_symbols, slot_rows, st.session_state.auto_paper_mode, status, analyzer, live_bundle_mode=st.session_state.get("live_bundle_mode", False))
+    if st.session_state.get("demo_mode", False):
+        scanner_rows, analysis_map = run_demo_scanner(slot_rows, st.session_state.analysis_timeframe)
+        score_map = current_trade_signal_state(analysis_map) if analysis_map else {}
+        analysis_ran = True
+        st.session_state.analysis_cache = {
+            "scanner_rows": scanner_rows,
+            "analysis_map": analysis_map,
+            "score_map": score_map,
+            "last_run_at": "demo",
+            "last_event_time": "demo synthetic candles",
+            "analysis_timeframe": st.session_state.analysis_timeframe,
+            "chart_timeframe": st.session_state.chart_timeframe,
+            "symbols": [row.get("symbol") for row in scanner_rows],
+            "live_bundle_mode": False,
+        }
 
     m1, m2, m3, m4, m5, m6 = st.columns(6)
     m1.metric("Collector", "RUNNING" if status.running else "STOPPED")
     m2.metric("Candles stored", storage.count_candles())
-    m3.metric("Selected symbols", len(st.session_state.selected_symbols))
+    m3.metric("Selected symbols", len(st.session_state.selected_symbols) if not st.session_state.get("demo_mode", False) else len(scanner_rows))
     m4.metric("Analyzer", "RUNNING" if analyzer_status.running else "STOPPED")
     m5.metric("Auto-paper", "ON" if st.session_state.auto_paper_mode else "OFF")
     m6.metric("Bundles", "ON" if st.session_state.get("live_bundle_mode", False) else "OFF")
+    if st.session_state.get("demo_mode", False):
+        st.warning("Demo mode: synthetic data only. Do not use displayed signals for trading decisions.")
     st.caption(f"Collector bootstrap: {'YES' if status.history_bootstrapped else 'NO'} | Last collector event: {status.last_event_time or '—'} | Poll seconds: {getattr(status, 'poll_seconds', st.session_state.get('poll_seconds', 300))} | Analysis TF: {getattr(status, 'analysis_timeframe', st.session_state.analysis_timeframe)} | Chart TF: {getattr(status, 'chart_timeframe', st.session_state.chart_timeframe)} | Collector error: {status.last_error or '—'}")
     cache_meta = st.session_state.get("analysis_cache", {})
     st.caption(f"Analyzer: {'RUNNING' if analyzer_status.running else 'STOPPED'} | Last analysis: {cache_meta.get('last_run_at') or analyzer_status.last_run_at or '—'} | Latest analyzed candle: {cache_meta.get('last_event_time') or cache_meta.get('latest_closed_candle_time') or analyzer_status.last_analyzed_candle_time or '—'} | Analysis TF: {cache_meta.get('analysis_timeframe') or getattr(analyzer_status, 'analysis_timeframe', st.session_state.analysis_timeframe)} | Chart TF: {cache_meta.get('chart_timeframe') or getattr(analyzer_status, 'chart_timeframe', st.session_state.chart_timeframe)} | Analysis refresh: {'just ran' if analysis_ran else 'cached'} | Live bundles: {'ON' if cache_meta.get('live_bundle_mode') else 'OFF'}")
@@ -889,13 +912,20 @@ def main() -> None:
                 st.write("HTF context")
                 st.json(analysis.get("htf_context", {}))
             st.write("Strategy opinions")
-            st.dataframe(pd.DataFrame(analysis["strategies"]), width="stretch", hide_index=True)
+            strategy_df = pd.DataFrame(analysis["strategies"])
+            fit_cols = ["strategy_name", "bias", "score", "threshold", "strategy_family", "fit_status", "allowed_by_lifecycle", "fit_reason", "lifecycle_state", "lifecycle_direction", "suggested_exit_family", "note"]
+            if not strategy_df.empty and all(c in strategy_df.columns for c in ["fit_status", "strategy_family"]):
+                st.dataframe(strategy_df[[c for c in fit_cols if c in strategy_df.columns]], width="stretch", hide_index=True)
+                with st.expander("All strategy opinion fields"):
+                    st.dataframe(strategy_df, width="stretch", hide_index=True)
+            else:
+                st.dataframe(strategy_df, width="stretch", hide_index=True)
         else:
             st.info("No scanner rows yet. Start the collector/analyzer and wait for the first closed-candle analysis cycle to complete.")
 
     with tab_lifecycle:
         st.subheader("Market State / Trend Lifecycle")
-        st.caption("V28.4 scaffold: classifies the current market phase and maps it to strategy families. This is a soft evidence layer first, not a hard live gate.")
+        st.caption("V28.5: classifies the current market phase, maps it to strategy families, and labels each strategy opinion as lifecycle-fit / caution / blocked. This is still a soft evidence layer, not a hard live gate.")
         if analysis_map:
             lifecycle_df = classify_analysis_map(analysis_map, analysis_tf=st.session_state.analysis_timeframe)
             if not lifecycle_df.empty:
@@ -907,6 +937,10 @@ def main() -> None:
                     "confidence",
                     "entry_mode",
                     "exit_family",
+                    "fit_ready_count",
+                    "directional_opinion_count",
+                    "blocked_or_conflict_count",
+                    "best_fit_strategy",
                     "allowed_strategy_families",
                     "blocked_strategy_families",
                     "reason",
