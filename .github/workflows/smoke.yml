@@ -23,3 +23,4 @@ jobs:
         run: |
           python smoke_test_v28_4_repo_ready.py
           python smoke_test_v28_5_demo_lifecycle_fit.py
+          python smoke_test_v28_6_historical_backfill.py
