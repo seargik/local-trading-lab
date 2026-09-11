@@ -27,3 +27,4 @@ jobs:
           python smoke_test_v28_7_history_manager.py
           python smoke_test_v28_8_lifecycle_gate.py
           python smoke_test_v28_9_research_command_center.py
+          python smoke_test_v28_10_runtime_cycle.py
