@@ -10,25 +10,23 @@ Reason: zip patches became too risky and hard to verify. GitHub gives branch his
 
 Decision: add synthetic demo data and lifecycle-to-strategy fit labels as a soft evidence layer.
 
-Reason: Codespaces/browser/mobile testing should work without local runtime data, and the app needs to explain which strategy families fit the current market phase.
+Reason: browser/Codespaces testing should work without local runtime data, and the app should explain which strategy families fit the current market phase.
 
-Constraint: lifecycle fit is not a hard live/paper gate yet.
+Constraint: lifecycle fit is not a hard live/paper gate.
 
 ## V28.6 — Historical OHLCV backfill
 
-Decision: add a CLI and engine to preload Binance USD-M futures OHLCV into the existing local parquet store.
+Decision: preload Binance USD-M futures OHLCV into the local parquet store and later update only the fresh missing part.
 
-Reason: the app should not wait weeks/months to build enough data before analysis/backtesting. It needs historical context immediately.
+Reason: analysis and backtests should not wait months for the collector to build history.
 
-Constraint: V28.6 backfills OHLCV only. Funding/open interest/order book/liquidations are separate future data products.
+Constraint: candles only; funding/open interest/order book/liquidations are separate future datasets.
 
 ## V28.7 — History Manager and project memory
 
-Decision: add a Data / History Manager page and stable project recap docs.
+Decision: add Data / History Manager UI and stable project recap docs.
 
-Reason: the app needs a visible data foundation: coverage, freshness, gap audit, backfill commands, and default target set. Project direction should be stored in GitHub docs rather than only in chat.
-
-Default requested target set:
+Default target set:
 
 ```text
 BTCUSDT, ETHUSDT, SOLUSDT, LTCUSDT, BNBUSDT, UNIUSDT, AAVEUSDT, XRPUSDT, TRXUSDT
@@ -40,17 +38,13 @@ Default requested history:
 12mo, 1h and 4h
 ```
 
-Decision: do not commit generated `data/ohlcv_store` parquet files.
-
-Reason: history files are runtime data, can grow quickly, and should live on local/Codespaces/VPS storage or as temporary CI artifacts, not in source control.
+Decision: do not commit generated `data/ohlcv_store` parquet files to Git.
 
 ## V28.8 — Lifecycle Gate Backtest Lab
 
-Decision: do **not** put lifecycle gating directly into the core backtest/live execution path yet.
+Decision: do not place lifecycle gating directly into the backtest/live signal path yet.
 
-First run a trade-level counterfactual study on saved backtests using the feature and HTF snapshots already stored with every trade.
-
-Compare:
+First compare saved trades under:
 
 ```text
 Baseline
@@ -61,43 +55,78 @@ Block blocked + conflicts
 Soft lifecycle score penalty
 ```
 
-Reason: lifecycle fit is a heuristic router. It should earn the right to become a gate through evidence rather than because the logic sounds reasonable.
+Reason: lifecycle is heuristic and should earn promotion through evidence.
 
-V28.8 adds bootstrap separation between kept and removed trades so the decision is not based only on a single-sample average.
+Constraint: post-trade filtering does not regenerate opportunities that could appear if an earlier blocked trade freed a one-trade-at-a-time slot.
 
-Constraint: post-trade filtering is not the same as exact signal-path replay. If a blocked original trade would have occupied a one-trade-at-a-time slot, removing it can create later opportunities that V28.8 does not regenerate.
-
-Promotion rule:
+Promotion ladder:
 
 ```text
-V28.8 promising result
+promising counterfactual result
 -> exact signal-path replay
 -> out-of-sample validation
 -> paper-only gate
--> only later consider live execution impact
+-> only later consider live execution
+```
+
+## V28.9 — Research Command Center
+
+Decision: stop broadening the strategy surface and create a narrow evidence runner.
+
+First-pass families:
+
+```text
+trend_pullback
+compression_breakout
+range_reversion
+```
+
+First-pass symbols:
+
+```text
+BTCUSDT, ETHUSDT, SOLUSDT
+```
+
+Default research timeframes:
+
+```text
+entry: 1h
+analysis: 4h
+```
+
+Default execution assumptions: `binance_usdm_taker_light`, not zero friction.
+
+Reason: the app has enough infrastructure. The next useful information is whether a small, understandable strategy set shows stable net edge after costs across pairs and periods.
+
+Decision: V28.9 reads the latest existing strategy versions and maps them into the three core families. It does not create new strategies simply because one family is missing.
+
+Decision: the main working UI should increasingly revolve around:
+
+```text
+Data / History -> Market State -> Strategy Evidence
 ```
 
 ## Current strategic decision
 
-Continue the project, but simplify the product direction.
+Continue the project, but simplify aggressively.
 
 Keep:
 
-- Historical data store.
+- Historical data store and incremental refresh.
 - Backtest/replay foundation.
-- Trend lifecycle router.
-- Lifecycle strategy-fit labels.
-- Strategy calibration/cross-validation/promotion workflow.
+- Trend lifecycle router and fit labels.
+- Friction-aware evaluation.
+- Cross-validation/promotion workflow.
 
 Freeze for now:
 
-- New strategy creation.
+- New strategy proliferation.
 - Live execution changes.
 - More complex bundle logic.
 - LLM-generated trading decisions.
 
-Focus next:
+Focus:
 
 ```text
-Historical data -> lifecycle -> strategy-family fit -> backtest evidence -> paper validation
+historical coverage -> narrow research batch -> lifecycle evidence -> cross-validation -> paper validation
 ```
