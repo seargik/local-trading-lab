@@ -25,3 +25,4 @@ jobs:
           python smoke_test_v28_5_demo_lifecycle_fit.py
           python smoke_test_v28_6_historical_backfill.py
           python smoke_test_v28_7_history_manager.py
+          python smoke_test_v28_8_lifecycle_gate.py
