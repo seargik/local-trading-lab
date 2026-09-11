@@ -44,6 +44,39 @@ Decision: do not commit generated `data/ohlcv_store` parquet files.
 
 Reason: history files are runtime data, can grow quickly, and should live on local/Codespaces/VPS storage or as temporary CI artifacts, not in source control.
 
+## V28.8 — Lifecycle Gate Backtest Lab
+
+Decision: do **not** put lifecycle gating directly into the core backtest/live execution path yet.
+
+First run a trade-level counterfactual study on saved backtests using the feature and HTF snapshots already stored with every trade.
+
+Compare:
+
+```text
+Baseline
+Fit only
+Fit only + confidence floor
+Block direction conflicts
+Block blocked + conflicts
+Soft lifecycle score penalty
+```
+
+Reason: lifecycle fit is a heuristic router. It should earn the right to become a gate through evidence rather than because the logic sounds reasonable.
+
+V28.8 adds bootstrap separation between kept and removed trades so the decision is not based only on a single-sample average.
+
+Constraint: post-trade filtering is not the same as exact signal-path replay. If a blocked original trade would have occupied a one-trade-at-a-time slot, removing it can create later opportunities that V28.8 does not regenerate.
+
+Promotion rule:
+
+```text
+V28.8 promising result
+-> exact signal-path replay
+-> out-of-sample validation
+-> paper-only gate
+-> only later consider live execution impact
+```
+
 ## Current strategic decision
 
 Continue the project, but simplify the product direction.
@@ -59,7 +92,7 @@ Keep:
 Freeze for now:
 
 - New strategy creation.
-- Live execution.
+- Live execution changes.
 - More complex bundle logic.
 - LLM-generated trading decisions.
 
