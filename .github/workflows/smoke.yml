@@ -18,9 +18,10 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
       - name: Compile source
-        run: python -m compileall app.py backtest_app.py backtest_worker.py app_src
+        run: python -m compileall app.py backtest_app.py backtest_worker.py app_src pages
       - name: Run repo smoke tests
         run: |
           python smoke_test_v28_4_repo_ready.py
           python smoke_test_v28_5_demo_lifecycle_fit.py
           python smoke_test_v28_6_historical_backfill.py
+          python smoke_test_v28_7_history_manager.py
