@@ -1,0 +1,52 @@
+name: history-backfill-artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: "Comma-separated symbols"
+        required: false
+        default: "BTCUSDT,ETHUSDT,SOLUSDT,LTCUSDT,BNBUSDT,UNIUSDT,AAVEUSDT,XRPUSDT,TRXUSDT"
+      intervals:
+        description: "Comma-separated intervals"
+        required: false
+        default: "1h,4h"
+      lookback:
+        description: "Lookback window"
+        required: false
+        default: "12mo"
+      update_only:
+        description: "Only fetch candles after latest stored candle"
+        required: false
+        default: "false"
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: Backfill OHLCV history
+        run: |
+          UPDATE_FLAG=""
+          if [ "${{ github.event.inputs.update_only }}" = "true" ]; then UPDATE_FLAG="--update-only"; fi
+          python backfill_default_history.py \
+            --symbols "${{ github.event.inputs.symbols }}" \
+            --intervals "${{ github.event.inputs.intervals }}" \
+            --lookback "${{ github.event.inputs.lookback }}" \
+            $UPDATE_FLAG
+      - name: Upload OHLCV store artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ohlcv-store-${{ github.run_id }}
+          path: |
+            data/ohlcv_store
+            data/backfill_reports
+          if-no-files-found: error
+          retention-days: 7
