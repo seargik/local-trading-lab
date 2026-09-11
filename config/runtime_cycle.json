@@ -1,0 +1,27 @@
+{
+  "history": {
+    "symbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "LTCUSDT", "BNBUSDT", "UNIUSDT", "AAVEUSDT", "XRPUSDT", "TRXUSDT"],
+    "intervals": ["1h", "4h"],
+    "lookback": "12mo",
+    "update_only": true,
+    "sleep_seconds": 0.15
+  },
+  "gap_audit": {
+    "enabled": true,
+    "max_gaps_per_target": 20
+  },
+  "analysis": {
+    "mode": "inline",
+    "symbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "LTCUSDT", "BNBUSDT", "UNIUSDT", "AAVEUSDT", "XRPUSDT", "TRXUSDT"],
+    "timeframe": "1h",
+    "live_bundle_mode": false
+  },
+  "research": {
+    "queue": false,
+    "symbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT"],
+    "families": ["trend_pullback", "compression_breakout", "range_reversion"],
+    "lookback_days": 365,
+    "require_history_ready": true,
+    "max_per_family": 1
+  }
+}

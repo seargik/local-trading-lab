@@ -10,15 +10,11 @@ Reason: zip patches became too risky and hard to verify. GitHub gives branch his
 
 Decision: add synthetic demo data and lifecycle-to-strategy fit labels as a soft evidence layer.
 
-Reason: browser/Codespaces testing should work without local runtime data, and the app should explain which strategy families fit the current market phase.
-
 Constraint: lifecycle fit is not a hard live/paper gate.
 
 ## V28.6 — Historical OHLCV backfill
 
 Decision: preload Binance USD-M futures OHLCV into the local parquet store and later update only the fresh missing part.
-
-Reason: analysis and backtests should not wait months for the collector to build history.
 
 Constraint: candles only; funding/open interest/order book/liquidations are separate future datasets.
 
@@ -43,21 +39,6 @@ Decision: do not commit generated `data/ohlcv_store` parquet files to Git.
 ## V28.8 — Lifecycle Gate Backtest Lab
 
 Decision: do not place lifecycle gating directly into the backtest/live signal path yet.
-
-First compare saved trades under:
-
-```text
-Baseline
-Fit only
-Fit only + confidence floor
-Block direction conflicts
-Block blocked + conflicts
-Soft lifecycle score penalty
-```
-
-Reason: lifecycle is heuristic and should earn promotion through evidence.
-
-Constraint: post-trade filtering does not regenerate opportunities that could appear if an earlier blocked trade freed a one-trade-at-a-time slot.
 
 Promotion ladder:
 
@@ -96,15 +77,47 @@ analysis: 4h
 
 Default execution assumptions: `binance_usdm_taker_light`, not zero friction.
 
-Reason: the app has enough infrastructure. The next useful information is whether a small, understandable strategy set shows stable net edge after costs across pairs and periods.
+## V28.10 — Runtime Cycle
 
-Decision: V28.9 reads the latest existing strategy versions and maps them into the three core families. It does not create new strategies simply because one family is missing.
+Decision: combine routine maintenance and analysis into one orchestrated cycle.
 
-Decision: the main working UI should increasingly revolve around:
+Default sequence:
 
 ```text
-Data / History -> Market State -> Strategy Evidence
+incremental OHLCV update
+-> coverage summary
+-> gap audit
+-> safe inline analysis
+-> Market State snapshot
+-> runtime report
 ```
+
+Decision: inline analysis forces:
+
+```text
+auto_paper_mode = false
+live_bundle_mode = false
+```
+
+Reason: routine refresh should update research state without silently changing paper/live execution behavior.
+
+Decision: core research preparation remains opt-in and guarded.
+
+Guardrails:
+
+- require approximately 95% BTC/ETH/SOL 1h and 4h coverage when configured;
+- do not queue a duplicate core research job;
+- do not auto-promote any strategy;
+- do not place exchange orders.
+
+Decision: persist operational history under:
+
+```text
+data/runtime_cycles/
+data/market_state_history/
+```
+
+and ignore those runtime artifacts in Git.
 
 ## Current strategic decision
 
@@ -117,6 +130,7 @@ Keep:
 - Trend lifecycle router and fit labels.
 - Friction-aware evaluation.
 - Cross-validation/promotion workflow.
+- Runtime-cycle orchestration.
 
 Freeze for now:
 

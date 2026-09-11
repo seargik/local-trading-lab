@@ -18,6 +18,8 @@ __pycache__/
 /data/backtests/
 /data/backtest_jobs/
 /data/backtest_reviews/
+/data/runtime_cycles/
+/data/market_state_history/
 /data/*.sqlite
 /data/*.db
 /logs/*.log

@@ -1,6 +1,6 @@
 # Local Trading Lab — Project Recap and Direction
 
-_Last updated for V28.9._
+_Last updated for V28.10._
 
 ## Source of truth
 
@@ -20,6 +20,7 @@ seargik/local-trading-lab
 - **V28.7**: Data / History Manager, default 12-month history target set, recap and decision log.
 - **V28.8**: Lifecycle Gate Backtest Lab for trade-level counterfactual validation before any execution gating.
 - **V28.9**: Research Command Center that combines Market State with a narrow three-family batch research runner.
+- **V28.10**: Runtime Cycle that combines history refresh, coverage/gap checks, safe analysis, Market State snapshots, and guarded research preparation.
 
 ## Current architecture
 
@@ -29,6 +30,7 @@ GitHub
 
 Runtime host: local PC / Codespaces / future VPS
   -> Streamlit UI
+  -> runtime cycle orchestration
   -> collector/analyzer/backtest workers
   -> data/ohlcv_store monthly parquet partitions
 
@@ -79,10 +81,11 @@ Data / History -> Market State -> Strategy Evidence -> Cross-validation -> Paper
 1. **Data / History** — coverage, freshness, gap audit, backfill, update-only refresh.
 2. **Market State** — lifecycle, direction, confidence, allowed families, current fit.
 3. **Strategy Evidence** — narrow research batches, friction-aware backtests, lifecycle-gate study, cross-validation, promotion/rejection.
+4. **Runtime Cycle** — one safe operation that keeps the first three modules fresh.
 
 ## V28.9 research protocol
 
-V28.9 deliberately narrows first-pass strategy research to:
+First-pass strategy research remains deliberately narrow:
 
 ```text
 trend_pullback
@@ -105,7 +108,27 @@ analysis: 4h
 
 Default execution assumptions use the `binance_usdm_taker_light` friction preset rather than zero-cost research.
 
-The Research Runner reads latest saved strategy versions and maps them to the three core families. It does not create new strategies to fill missing families.
+## V28.10 operating model
+
+Default runtime sequence:
+
+```text
+incremental history refresh
+-> coverage summary
+-> gap audit
+-> safe inline analysis
+-> timestamped Market State snapshot
+-> runtime report
+```
+
+Research preparation remains opt-in and is guarded by history readiness and duplicate-job checks.
+
+Safe inline analysis explicitly keeps:
+
+```text
+auto_paper_mode = false
+live_bundle_mode = false
+```
 
 ## What is experimental
 
@@ -114,6 +137,7 @@ The Research Runner reads latest saved strategy versions and maps them to the th
 - Strategy-family mapping is heuristic until families are stored explicitly in strategy metadata.
 - Historical OHLCV contains candles only; funding, open interest, liquidations and order-book history are separate datasets.
 - One successful run is not enough to promote a strategy.
+- Runtime scheduling is not yet persistent/24x7; V28.10 is an on-demand cycle.
 
 ## What should not be trusted yet
 
@@ -138,22 +162,23 @@ historical coverage
 
 ## Next roadmap
 
-### V28.9
+### V28.10
 
-- Research Command Center.
-- One-page Market State + history readiness view.
-- Core batch research runner for three strategy families.
-- BTC/ETH/SOL first-pass evidence set.
+- Runtime cycle orchestration.
+- Safe inline analysis with auto-paper disabled.
+- Market State history snapshots.
+- Guarded research preparation.
+- Runtime Cycle Streamlit status page.
 
 ### Next after real data/results exist
 
-- Review which strategies actually mapped to the three families.
-- Run the first 12-month evidence batch.
-- Use V28.8 to test lifecycle filtering on saved runs.
-- Only if lifecycle evidence is promising: build exact signal-path gated replay.
+- Review the first 12-month core-family evidence batch.
+- Use V28.8 on saved runs.
+- If lifecycle evidence is promising, build exact signal-path replay.
+- Store explicit `strategy_family` metadata instead of relying on heuristic name mapping.
 
 ### Later
 
+- Schedule the runtime cycle hourly/daily on the chosen runtime.
 - Mobile-first dashboard refinement.
-- Persistent scheduled history update + analysis snapshots.
-- Optional VPS deployment when 24/7 monitoring is actually needed.
+- Optional VPS deployment when 24/7 monitoring is useful.
