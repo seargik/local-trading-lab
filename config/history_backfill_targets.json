@@ -1,0 +1,16 @@
+{
+  "symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT",
+    "LTCUSDT",
+    "BNBUSDT",
+    "UNIUSDT",
+    "AAVEUSDT",
+    "XRPUSDT",
+    "TRXUSDT"
+  ],
+  "intervals": ["1h", "4h"],
+  "lookback": "12mo",
+  "notes": "Default V28.7 target set requested for local history preload. Generated OHLCV parquet data stays in data/ohlcv_store and is not committed to Git."
+}

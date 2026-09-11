@@ -13,6 +13,8 @@ __pycache__/
 
 # Local runtime data - do not commit personal/backtest history
 /data/ohlcv_store/
+/data/backfills/
+/data/backfill_reports/
 /data/backtests/
 /data/backtest_jobs/
 /data/backtest_reviews/
