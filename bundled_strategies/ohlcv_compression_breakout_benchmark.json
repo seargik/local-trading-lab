@@ -1,0 +1,40 @@
+{
+  "packet_type": "local_lab_research_benchmark_v1",
+  "exported_at": "2026-09-13T00:00:00Z",
+  "strategy": {
+    "strategy_name": "OHLCV Compression Breakout Benchmark",
+    "template_key": "rule_builder",
+    "human_thesis": "Use only historically replayable OHLCV-derived evidence: a confirmed 20-bar breakout, evidence that the prior bar was compressed relative to its recent volatility baseline, volume expansion, candle close strength, and non-opposing higher-timeframe context.",
+    "expected_outcome": "A simple control strategy for testing whether compression-to-breakout behavior has positive net expectancy after realistic execution friction. It is not a production trading strategy and should not be promoted from one backtest window.",
+    "indicator_description": "OHLCV-only compression/breakout benchmark using breakout_above_n_bar_high or breakout_below_n_bar_low, compression_before_breakout, volume_ratio, breakout_close_strength, and htf_alignment.",
+    "indicators": [
+      "breakout_above_n_bar_high",
+      "breakout_below_n_bar_low",
+      "compression_before_breakout",
+      "volume_ratio",
+      "breakout_close_strength",
+      "htf_alignment"
+    ],
+    "indicator_rules": [
+      {"enabled": true, "indicator": "breakout_above_n_bar_high", "operator": "is_true", "value": true, "value_2": null, "weight": 30, "bias": "LONG"},
+      {"enabled": true, "indicator": "compression_before_breakout", "operator": "is_true", "value": true, "value_2": null, "weight": 20, "bias": "LONG"},
+      {"enabled": true, "indicator": "volume_ratio", "operator": ">=", "value": 1.2, "value_2": null, "weight": 20, "bias": "LONG"},
+      {"enabled": true, "indicator": "breakout_close_strength", "operator": ">=", "value": 0.65, "value_2": null, "weight": 15, "bias": "LONG"},
+      {"enabled": true, "indicator": "htf_alignment", "operator": "!=", "value": "bearish", "value_2": null, "weight": 15, "bias": "LONG"},
+      {"enabled": true, "indicator": "breakout_below_n_bar_low", "operator": "is_true", "value": true, "value_2": null, "weight": 30, "bias": "SHORT"},
+      {"enabled": true, "indicator": "compression_before_breakout", "operator": "is_true", "value": true, "value_2": null, "weight": 20, "bias": "SHORT"},
+      {"enabled": true, "indicator": "volume_ratio", "operator": ">=", "value": 1.2, "value_2": null, "weight": 20, "bias": "SHORT"},
+      {"enabled": true, "indicator": "breakout_close_strength", "operator": "<=", "value": 0.35, "value_2": null, "weight": 15, "bias": "SHORT"},
+      {"enabled": true, "indicator": "htf_alignment", "operator": "!=", "value": "bullish", "value_2": null, "weight": 15, "bias": "SHORT"}
+    ],
+    "rule_params": {
+      "score_threshold": 70,
+      "exit_family": "breakout_balanced",
+      "tp_mode": "structure_atr",
+      "stop_multiplier": 1.0
+    },
+    "expected_rr": "1:2",
+    "score_threshold": 70,
+    "notes": "V28.12 research benchmark only. Uses OHLCV-derived features and HTF OHLCV context only. No funding, open interest, order-book, liquidation, or LLM input. Keep out of live/paper slots unless separately validated and explicitly promoted."
+  }
+}
