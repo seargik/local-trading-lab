@@ -11,7 +11,7 @@ __pycache__/
 # Streamlit secrets / local config
 .streamlit/secrets.toml
 
-# Local runtime data - do not commit personal/backtest history
+# Local runtime data - do not commit personal/backtest/history/paper state
 /data/ohlcv_store/
 /data/backfills/
 /data/backfill_reports/
@@ -20,6 +20,7 @@ __pycache__/
 /data/backtest_reviews/
 /data/runtime_cycles/
 /data/market_state_history/
+/data/paper_validation/
 /data/*.sqlite
 /data/*.db
 /logs/*.log
