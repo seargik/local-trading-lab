@@ -5,7 +5,14 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from app_src.historical_backfill import backfill_symbol_history, summarize_store
+from app_src.historical_backfill import (
+    DEFAULT_MAX_GAP_REPAIRS,
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_RETRY_BACKOFF_SECONDS,
+    DEFAULT_UPDATE_OVERLAP_BARS,
+    backfill_symbol_history,
+    summarize_store,
+)
 from app_src.runtime_state import atomic_write_json
 from app_src.settings import ANALYSIS_REQUEST_PATH, OHLCV_STORE_ROOT
 
@@ -15,16 +22,21 @@ def _split_symbols(raw: str) -> list[str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Backfill Binance USD-M futures OHLCV into the local parquet OHLCV store.")
+    parser = argparse.ArgumentParser(description="Backfill and integrity-check Binance USD-M futures OHLCV in the local parquet store.")
     parser.add_argument("--symbols", required=True, help="Comma-separated symbols, e.g. BTCUSDT,ETHUSDT,SOLUSDT")
     parser.add_argument("--interval", default="1h", help="Kline interval, e.g. 5m, 15m, 1h, 4h, 1d")
     parser.add_argument("--lookback", default=None, help="Relative history window, e.g. 30d, 6mo, 1y, 5y")
     parser.add_argument("--start", default=None, help="UTC start date/time, e.g. 2021-01-01 or 2021-01-01T00:00:00Z")
     parser.add_argument("--end", default=None, help="UTC end date/time. Defaults to now.")
-    parser.add_argument("--update-only", action="store_true", help="Start from the last stored candle + one interval when local history already exists.")
+    parser.add_argument("--update-only", action="store_true", help="Refresh the recent tail with overlap when local history already exists.")
+    parser.add_argument("--overlap-bars", type=int, default=DEFAULT_UPDATE_OVERLAP_BARS, help="Latest stored candles refetched in update-only mode.")
+    parser.add_argument("--max-retries", type=int, default=DEFAULT_MAX_RETRIES, help="Retry count for transient Binance/API failures.")
+    parser.add_argument("--retry-backoff-seconds", type=float, default=DEFAULT_RETRY_BACKOFF_SECONDS, help="Base exponential retry delay.")
+    parser.add_argument("--no-repair-gaps", action="store_true", help="Audit internal gaps without attempting targeted repair.")
+    parser.add_argument("--max-gap-repairs", type=int, default=DEFAULT_MAX_GAP_REPAIRS, help="Maximum internal gaps repaired per symbol.")
     parser.add_argument("--store-root", default=str(OHLCV_STORE_ROOT), help="Target OHLCV parquet store root")
     parser.add_argument("--sleep", type=float, default=0.15, help="Pause between Binance requests in seconds")
-    parser.add_argument("--max-pages", type=int, default=None, help="Safety limit for requests per symbol")
+    parser.add_argument("--max-pages", type=int, default=None, help="Safety limit for requests per download window")
     parser.add_argument("--request-analysis", action="store_true", help="Ask analyzer_worker.py to rerun after the backfill finishes")
     args = parser.parse_args()
 
@@ -44,6 +56,11 @@ def main() -> int:
             end=args.end,
             lookback=args.lookback,
             update_only=args.update_only,
+            update_overlap_bars=max(0, int(args.overlap_bars)),
+            max_retries=max(0, int(args.max_retries)),
+            retry_backoff_seconds=max(0.0, float(args.retry_backoff_seconds)),
+            repair_gaps=not bool(args.no_repair_gaps),
+            max_gap_repairs=max(0, int(args.max_gap_repairs)),
             store_root=args.store_root,
             sleep_seconds=args.sleep,
             max_pages=args.max_pages,
@@ -52,11 +69,14 @@ def main() -> int:
         print(json.dumps(result.to_dict(), indent=2, default=str), flush=True)
         print(json.dumps(summarize_store(symbol, args.interval, store_root=args.store_root), indent=2, default=str), flush=True)
 
+    if any(row.get("integrity_status") not in {"ready", "current"} for row in all_results):
+        print("WARNING: unresolved OHLCV integrity issues remain; inspect gaps_remaining/missing_rows_remaining before research.", flush=True)
+
     if args.request_analysis:
         atomic_write_json(
             Path(ANALYSIS_REQUEST_PATH),
             {
-                "reason": "historical_backfill_completed",
+                "reason": "v28_19_history_integrity_backfill_completed",
                 "requested_at": datetime.now(timezone.utc).isoformat(),
                 "symbols": symbols,
                 "interval": args.interval,
