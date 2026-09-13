@@ -35,3 +35,4 @@ jobs:
           python smoke_test_v28_15_fresh_holdout.py
           python smoke_test_v28_16_market_state_router.py
           python smoke_test_v28_17_market_state_replay.py
+          python smoke_test_v28_18_timing_integrity.py
