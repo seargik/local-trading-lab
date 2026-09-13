@@ -16,6 +16,7 @@ from app_src.research_command_center_v29 import (
     select_core_strategies,
     strategy_row_to_payload,
 )
+from app_src.strategy_family_registry_v2811 import compiled_registry
 
 
 def _row(strategy_id: int, name: str, version_no: int = 1) -> dict[str, object]:
@@ -38,9 +39,13 @@ def _row(strategy_id: int, name: str, version_no: int = 1) -> dict[str, object]:
 
 
 def main() -> None:
+    names = {row["registry_key"]: row["strategy_name"] for row in compiled_registry()}
+    trend_name = names["htf_bias_ltf_pullback"]
+    range_name = names["mean_reversion"]
+
     df = pd.DataFrame([
-        _row(1, "HTF Bias + LTF Pullback Entry"),
-        _row(2, "Mean Reversion"),
+        _row(1, trend_name),
+        _row(2, range_name),
     ])
     selected = select_core_strategies(df, CORE_RESEARCH_FAMILIES, max_per_family=1)
     assert len(selected) == 3, selected
@@ -49,7 +54,7 @@ def main() -> None:
     assert compression["benchmark_only"] is True
 
     payload = strategy_row_to_payload(df.iloc[0])
-    assert payload["strategy_name"] == "HTF Bias + LTF Pullback Entry"
+    assert payload["strategy_name"] == trend_name
     assert canonical_research_family(payload) == "trend_pullback"
 
     plan = build_research_plan(selected, CORE_RESEARCH_SYMBOLS)
