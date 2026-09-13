@@ -42,3 +42,4 @@ jobs:
           python smoke_test_v28_22_adaptive_portfolio_walk_forward.py
           python smoke_test_v28_23_future_adaptive_portfolio_holdout.py
           python smoke_test_v28_24_prospective_paper_validation.py
+          python smoke_test_v28_24b_runtime_hardening.py
