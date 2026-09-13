@@ -142,3 +142,8 @@ def render_adaptive_evidence_lab() -> None:
         ]
         available = [c for c in cols if c in result.annotated_trades.columns]
         st.dataframe(_fmt(result.annotated_trades[available].head(500)), width="stretch", hide_index=True)
+
+    st.divider()
+    st.subheader("Next economic gate")
+    st.caption("V28.21 puts these candidates through one finite account so overlapping opportunities can no longer reuse capital implicitly.")
+    st.page_link("pages/10_Shared_Account_Replay.py", label="Open V28.21 Shared-Account Replay")
