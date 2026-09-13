@@ -313,100 +313,21 @@ No paper/live execution behavior changed.
 
 Decision: harden the OHLCV store before comparing adaptive-router profitability.
 
-### Closed-candle storage
+Only fully closed Binance candles may be written by the historical backfill. Older unfinished tail rows are pruned. Update-only refresh overlaps recent candles so the tail can be replaced safely. Transient failures use retry/backoff. Consecutive `open_time` values are audited and internal gaps are repaired when possible.
 
-Only fully closed Binance candles may be written by the historical backfill.
-
-Rows returned for the currently forming candle are discarded and counted:
-
-```text
-discarded_unclosed_rows
-```
-
-Older stores may contain an unfinished tail row from previous collectors. V28.19 prunes rows whose close time is still in the future or whose `is_closed` flag is false.
-
-Decision: pruning uses real current UTC time. A request with an older historical end date must never delete newer valid data already stored outside that requested window.
-
-### Overlap refresh
-
-Decision: update-only refresh intentionally refetches the latest stored candles rather than starting strictly after the latest row.
-
-Default:
+Defaults include:
 
 ```text
 overlap_bars = 2
-```
-
-For a latest stored candle `T`, two-bar overlap restarts at `T - 1 interval`, so the latest two stored rows can be replaced safely through open-time deduplication.
-
-`overlap_bars = 0` preserves the old start-after-latest behavior.
-
-### Retry/backoff
-
-Decision: transient Binance/network failures must not immediately abort a history refresh.
-
-Retryable statuses:
-
-```text
-418, 429, 500, 502, 503, 504
-```
-
-Defaults:
-
-```text
 max_retries = 4
 retry_backoff_seconds = 0.5
-```
-
-The delay grows exponentially unless a `Retry-After` header is supplied.
-
-### Continuity audit and gap repair
-
-Decision: after refresh, audit consecutive `open_time` values for missing internal candles.
-
-Report:
-
-```text
-gaps_before
-missing_rows_before
-repair_attempts
-gaps_repaired
-gaps_remaining
-missing_rows_remaining
-integrity_status
-```
-
-Decision: targeted repair is enabled by default. For each detected internal gap, request only the missing Binance time window, write through the normal parquet store and audit again.
-
-Default:
-
-```text
 repair_gaps = true
 max_gap_repairs = 50
 ```
 
-`integrity_status = ready` means the observed stored range has no internal gap and no unfinished row. It does not replace the separate coverage/freshness requirement.
+Decision: Data / History Manager readiness requires both coverage/freshness and continuity.
 
-### UI and runtime behavior
-
-Decision: Data / History Manager should display both coverage and integrity:
-
-```text
-continuity_ok
-internal_gap_count
-internal_missing_rows
-unclosed_rows
-```
-
-A target is `ready` only when coverage/freshness and continuity both pass.
-
-Decision: Runtime Cycle automatically benefits from the hardened `backfill_symbol_history` defaults without changing paper/live execution.
-
-Recommended regular command:
-
-```powershell
-.\.venv\Scripts\python.exe backfill_default_history.py --lookback 12mo --update-only --overlap-bars 2 --request-analysis
-```
+Decision: Runtime Cycle automatically benefits from hardened backfill defaults without changing paper/live execution.
 
 ## V28.20 — Adaptive Evidence & Economic Viability
 
@@ -416,7 +337,7 @@ The V28.20 test is a causal counterfactual layer over already-simulated family t
 
 ```text
 saved strategy signal
--> latest historical router state that was already available
+-> latest historical router state already available
 -> require family/action/direction match
 -> apply fixed router risk multiplier
 -> compare selected evidence with static baseline
@@ -424,64 +345,151 @@ saved strategy signal
 
 Decision: use backward-only state joins. A router decision after a strategy signal must never influence that earlier signal.
 
-Decision: choose one representative saved run per family by explicit registry priority, not by historical PnL. This reduces winner-picking after outcomes are known.
+Decision: choose one representative saved run per family by explicit registry priority, not by historical PnL.
 
-Decision: measure adaptation in exposure-normalized terms, not only absolute PnL. V28.20 reports profit factor, expectancy bps per capital turn, drawdown, pair/month stability and family concentration.
+Decision: measure adaptation in exposure-normalized terms, not only absolute PnL. Report PF, expectancy per capital turn, drawdown, pair/month stability and family concentration.
 
-Decision: treat `WAIT` as an economic decision. Report avoided losses and missed profits separately so a router is not praised for simply taking fewer trades.
+Decision: treat `WAIT` as an economic decision and report avoided losses and missed profits separately.
 
-Decision: stress the selected adaptive set with additional round-trip friction of 0/5/10/20/40 bps and require explicit friction headroom.
+Decision: stress the selected adaptive set with additional round-trip friction of 0/5/10/20/40 bps.
 
-Decision: audit capital overlap. If independently simulated family trades overlap, summed fixed-stake PnL is not a deployable single-account return. Concurrency is exposed and criticized rather than hidden.
+Decision: audit capital overlap. Summed fixed-stake PnL from overlapping independent strategies is not treated as deployable single-account equity.
 
-Decision: historical promotion is blocked unless representative source runs carry V28.18 timing integrity and the V28.19 source OHLCV continuity audit passes.
+Decision: promotion is blocked unless source runs carry V28.18 timing integrity and V28.19 source continuity passes.
 
-Decision: if the benchmark-only OHLCV compression strategy participates, an otherwise strong result remains `promising_research_only`; it cannot become an unrestricted adaptive candidate.
+Decision: benchmark-only compression participation caps the result at `promising_research_only`.
+
+Decision: persist reproducible evidence snapshots with SHA-256 policy fingerprints.
+
+## V28.21 — Shared-Account Adaptive Portfolio Replay
+
+Decision: resolve V28.20's largest capital-realism gap before adding more strategy complexity.
+
+Static and adaptive historical candidates must now compete for **one finite account** in chronological order.
+
+Account chronology:
+
+```text
+close exits already due
+-> realize PnL into current equity
+-> rank candidates using only pre-entry information
+-> apply shared capital/risk/exposure limits
+-> accept/reject candidates
+-> size accepted positions from current equity
+```
+
+Decision: process exits before entries at the same timestamp so released capital can be reused without artificial overlap.
+
+Decision: future outcome must never influence same-time arbitration.
+
+Static priority:
+
+```text
+strategy score
+-> deterministic symbol/family/id tie-breakers
+```
+
+Adaptive priority:
+
+```text
+router confidence
+-> router risk multiplier
+-> strategy score
+-> deterministic symbol/family/id tie-breakers
+```
+
+Decision: use stop-distance-aware risk sizing rather than fixed notional sizing.
+
+Default account policy:
+
+```text
+starting_equity_usd = 10000
+base_risk_per_trade_pct = 0.5
+max_total_open_risk_pct = 1.5
+max_position_notional_pct = 35
+max_symbol_notional_pct = 35
+max_gross_exposure_pct = 100
+max_same_direction_exposure_pct = 70
+max_concurrent_positions = 3
+max_positions_per_family = 2
+one_position_per_symbol = true
+```
+
+Decision: keep leverage/liquidation out of the model for now. The default account cannot exceed 100% gross notional. Leverage should not be added merely to magnify a weak edge.
+
+Decision: approximate BTC/ETH/SOL correlation risk with a same-direction gross-exposure cap. This is explicitly weaker than a future covariance/factor model but materially better than treating concurrent crypto longs as independent.
+
+Decision: maintain an explicit candidate rejection ledger. Capital/exposure-limited opportunities must be visible rather than silently omitted.
+
+Decision: compare **static and adaptive under the same account constraints**. The adaptive layer must add value after finite capital is enforced, not only in a pooled independent-trade table.
+
+Decision: rerun the complete account for 0/5/10/20/40 bps extra round-trip friction because higher costs change equity and therefore later compounded position sizes.
+
+Decision: report one account equity curve, capital turnover, accepted/rejected trades, PF, realized drawdown, max gross exposure, max open risk, max same-direction exposure and pair/family/month contributions.
+
+Important limitation: V28.21 drawdown is realized-equity drawdown at exits. It does not yet synchronize all open positions mark-to-market candle by candle. Intratrade account drawdown can therefore be worse.
+
+Decision: preserve trade-level MAE as a diagnostic, but do not sum independent MAEs as if their worst moments occurred simultaneously.
 
 Verdicts:
 
 ```text
-no_adaptive_evidence
+invalid_evidence
+no_portfolio_evidence
 reject
+static_baseline_better
 insufficient_evidence
 promising_research_only
-adaptive_edge_candidate
+shared_account_edge_candidate
 ```
 
-`adaptive_edge_candidate` means only that the frozen adaptive hypothesis has earned stronger validation. It is not a forecast of profit and does not enable paper/live execution.
+Decision: `static_baseline_better` is a first-class failure of the adaptive architecture. More sophistication is not rewarded when it reduces economic value.
 
-Decision: persist each V28.20 analysis as a reproducible snapshot under:
+Decision: `shared_account_edge_candidate` authorizes only stronger frozen validation. It does not enable paper/live trading.
+
+Decision: benchmark-only accepted trades continue to block production-oriented promotion.
+
+Decision: save reproducible V28.21 snapshots under:
 
 ```text
-data/backtest_reviews/adaptive_evidence/
+data/backtest_reviews/shared_account_replays/
 ```
 
-The snapshot fingerprints the adaptive-evidence, Market State Router and Market State Replay policies with SHA-256 hashes. Future validation must be able to prove which exact adaptive logic generated the historical evidence.
+Snapshots fingerprint:
 
-Largest remaining methodological gap: an exact account-level adaptive replay with one shared capital pool, simultaneous-candidate arbitration, portfolio exposure limits and one causal equity curve. Build that before adding broad new strategy complexity.
+```text
+shared-account policy
+adaptive-evidence policy
+market-state router policy
+market-state replay policy
+```
+
+The exact adaptive + capital policy must be frozen before the next validation stage.
 
 ## Current strategic decision
 
-Continue the project as a research/validation system, but keep execution changes frozen until evidence is materially stronger.
+Continue TRAI as a research/validation system. Keep execution changes frozen until the **complete adaptive portfolio** survives stronger chronological and genuinely future validation.
 
 Keep:
 
-- integrity-safe historical OHLCV storage;
+- integrity-safe historical OHLCV;
 - closed-bar historical timing;
-- Market State Identifier and adaptive routing research;
-- adaptive economic-value testing rather than signal-count vanity metrics;
+- Market State + Adaptive Router research;
 - explicit strategy-family registry;
-- friction-aware evaluation;
-- conservative evidence rejection;
-- frozen walk-forward and future holdout protocols;
+- friction-aware evidence testing;
+- shared-account capital/risk replay;
+- conservative reject/retain gates;
+- reproducible policy fingerprints;
+- frozen walk-forward and future-holdout protocols;
 - Runtime Cycle orchestration.
 
 Freeze for now:
 
-- uncontrolled new strategy proliferation;
+- uncontrolled strategy proliferation;
+- leverage optimization;
 - live execution changes;
 - opaque LLM trading decisions;
-- extra complexity that is not justified by evidence.
+- complexity that is not justified by evidence.
 
 Current research ladder:
 
@@ -492,10 +500,12 @@ V28.19 trustworthy OHLCV
 -> V28.17 historical state replay
 -> controlled static family baselines
 -> V28.20 adaptive economic evidence
--> exact account-aware adaptive replay
--> frozen walk-forward of complete adaptive policy
--> freeze complete adaptive framework
--> V28.15-style genuinely future holdout
--> frozen paper validation
+-> V28.21 shared-account portfolio replay
+-> freeze complete strategy/router/capital policy
+-> portfolio-level frozen walk-forward
+-> genuinely future holdout
+-> frozen shared-account paper validation
 -> constrained live execution only later
 ```
+
+Next major development should validate the whole frozen adaptive portfolio across time rather than add another collection of strategies.
