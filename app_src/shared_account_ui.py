@@ -101,6 +101,11 @@ def render_shared_account_replay() -> None:
     name = str(verdict.get("verdict") or "unknown")
     if name == "shared_account_edge_candidate":
         st.success("Shared-account edge candidate — capital-aware historical evidence is strong enough for stronger validation, not for live deployment.")
+        st.page_link(
+            "pages/11_Frozen_Portfolio_Walk_Forward.py",
+            label="Continue to V28.22 Frozen Portfolio Walk-Forward",
+            icon="➡️",
+        )
     elif name == "static_baseline_better":
         st.error("Static baseline better — the adaptive router is currently destroying value after shared-capital constraints.")
     elif name in {"reject", "invalid_evidence"}:

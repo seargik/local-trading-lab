@@ -1,0 +1,3 @@
+from app_src.adaptive_portfolio_walk_forward_ui import render_adaptive_portfolio_walk_forward
+
+render_adaptive_portfolio_walk_forward()

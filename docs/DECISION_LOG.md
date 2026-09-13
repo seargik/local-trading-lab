@@ -466,9 +466,103 @@ market-state replay policy
 
 The exact adaptive + capital policy must be frozen before the next validation stage.
 
+## V28.22 — Frozen Adaptive Portfolio Walk-Forward
+
+Decision: after a V28.21 `shared_account_edge_candidate`, freeze the **complete adaptive portfolio framework**, not only the strategy names.
+
+The V28.22 freeze contains:
+
+```text
+representative strategy payloads + SHA-256
+adaptive-evidence policy
+Market State / Router policy
+Market State Replay policy
+shared-account capital policy
+V28.22 walk-forward policy
+core implementation-file SHA-256 fingerprints
+source V28.21 result signature
+```
+
+Integrity identifiers:
+
+```text
+framework_sha256
+record_sha256
+```
+
+Decision: V28.22 eligibility requires the source V28.21 verdict to be exactly `shared_account_edge_candidate`, and representative saved strategy runs must carry V28.18 timing integrity.
+
+Decision: policy, implementation, strategy-payload and source-result drift invalidate the freeze. Do not weaken integrity checks merely to make an old validation artifact reusable after code changes.
+
+Default historical structure for an approximately one-year source period:
+
+```text
+months 1-6   diagnostic history -> OOS months 7-8
+months 1-8   diagnostic history -> OOS months 9-10
+months 1-10  diagnostic history -> OOS months 11-12
+```
+
+Decision: the expanding historical section is diagnostic only. No strategy parameter, Market State threshold, router threshold, risk multiplier, arbitration rule, capital rule or validation threshold may be retuned between folds.
+
+Decision: compare frozen adaptive and frozen static shared-account behavior under the same capital rules in every OOS fold.
+
+Decision: per-fold account resets exist for comparability, but the stronger economic view is an **aggregate chronological OOS shared account** built from all non-overlapping test windows, with capital carrying across windows and positions able to compete across fold boundaries.
+
+Default robustness requirements:
+
+```text
+3 folds
+>= 67% fold-pass share
+>= 67% folds where adaptive return >= static return
+>= 30 aggregate accepted OOS adaptive trades
+aggregate adaptive return > 0
+aggregate adaptive PF >= 1.10
+aggregate realized drawdown <= 12%
+adaptive aggregate return >= static aggregate return
+positive symbol share >= 67%
+positive month share >= 50%
+survive +10 bps extra round-trip friction
+no accepted benchmark-only OOS trade
+```
+
+Decision: account-level friction stress is replayed at 0/5/10/20/40 bps because extra cost changes equity and therefore later position sizing.
+
+Verdicts:
+
+```text
+invalid_freeze_or_evidence
+insufficient_walk_forward
+fail
+static_baseline_better_oos
+mixed
+pass_for_future_freeze
+```
+
+Decision: `static_baseline_better_oos` is a first-class rejection state. If the simpler account beats the adaptive account on both aggregate OOS return and profit factor, the adaptive layer has not earned its complexity.
+
+Decision: accepted benchmark-only OOS trades block `pass_for_future_freeze`.
+
+Decision: `pass_for_future_freeze` authorizes only a **new tamper-evident genuinely future test**. It does not authorize paper or live trading.
+
+Important methodology constraint: V28.22 reuses a historical period that has already influenced research/candidate selection. It is frozen temporal-stability evidence, not pristine future evidence.
+
+Decision: save V28.22 freeze records under:
+
+```text
+data/backtest_reviews/adaptive_portfolio_freezes/
+```
+
+and validation snapshots under:
+
+```text
+data/backtest_reviews/adaptive_portfolio_walk_forward/
+```
+
+Known limitations remain explicit: realized-equity drawdown can understate synchronized intratrade mark-to-market drawdown; same-direction exposure is a crude correlation proxy; OHLCV replay cannot reconstruct queue position or exact fill latency; leverage/liquidation modeling remains intentionally excluded.
+
 ## Current strategic decision
 
-Continue TRAI as a research/validation system. Keep execution changes frozen until the **complete adaptive portfolio** survives stronger chronological and genuinely future validation.
+Continue TRAI as a research/validation system. Keep execution changes frozen until the **complete adaptive portfolio** survives chronological and genuinely future validation.
 
 Keep:
 
@@ -478,9 +572,11 @@ Keep:
 - explicit strategy-family registry;
 - friction-aware evidence testing;
 - shared-account capital/risk replay;
+- complete-framework SHA-256 freezes;
 - conservative reject/retain gates;
-- reproducible policy fingerprints;
-- frozen walk-forward and future-holdout protocols;
+- chronological frozen portfolio validation;
+- reproducible policy/implementation fingerprints;
+- future-holdout protocols;
 - Runtime Cycle orchestration.
 
 Freeze for now:
@@ -501,11 +597,11 @@ V28.19 trustworthy OHLCV
 -> controlled static family baselines
 -> V28.20 adaptive economic evidence
 -> V28.21 shared-account portfolio replay
--> freeze complete strategy/router/capital policy
--> portfolio-level frozen walk-forward
--> genuinely future holdout
+-> V28.22 frozen adaptive portfolio walk-forward
+-> new complete-framework freeze BEFORE future data
+-> genuinely future adaptive portfolio holdout
 -> frozen shared-account paper validation
 -> constrained live execution only later
 ```
 
-Next major development should validate the whole frozen adaptive portfolio across time rather than add another collection of strategies.
+Next major development after a real V28.22 `pass_for_future_freeze` should validate the **same exact framework hash on genuinely future market data**, not add another collection of strategies.
