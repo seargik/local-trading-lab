@@ -206,6 +206,54 @@ data/backtest_reviews/evidence_scorecards/
 
 and remain runtime research artifacts rather than Git source files.
 
+## V28.14 — Frozen Walk-Forward Validation
+
+Decision: a non-benchmark `cross_validation_candidate` from V28.13 should be tested with the exact same strategy payload across expanding chronological holdouts before any paper-promotion discussion.
+
+Default fold pattern for a roughly 12-month run:
+
+```text
+train months 1-6  -> test months 7-8
+train months 1-8  -> test months 9-10
+train months 1-10 -> test months 11-12
+```
+
+Decision: hash the complete strategy payload before queueing and verify the same SHA-256 hash in every saved validation result.
+
+Reason: a walk-forward test is meaningless if thresholds, exits, stops or rules drift between folds.
+
+Decision: store validation thresholds in:
+
+```text
+config/walk_forward_policy.json
+```
+
+and treat them as versioned research policy rather than hidden AI judgment.
+
+Decision: include explicit pair-transfer diagnostics using the same frozen strategy:
+
+```text
+BTC training evidence -> ETH/SOL forward windows
+ETH training evidence -> BTC/SOL forward windows
+SOL training evidence -> BTC/ETH forward windows
+```
+
+Decision: LONG/SHORT stability is reported but is not a hard V28.14 promotion gate because legitimate strategies may be directionally asymmetric.
+
+Important methodology decision: V28.14 must not be described as a pristine untouched out-of-sample test when V28.13 selected the candidate using the same 12-month dataset. It is a frozen-parameter temporal-stability test. A genuinely fresh period remains required later.
+
+Possible V28.14 verdicts:
+
+```text
+pass_for_next_validation
+mixed
+insufficient_evidence
+fail
+invalid_test
+```
+
+A pass authorizes only stronger validation, never live execution.
+
 ## Current strategic decision
 
 Continue the project, but simplify aggressively.
@@ -218,6 +266,7 @@ Keep:
 - Explicit strategy-family registry.
 - Friction-aware evaluation.
 - Evidence Review and conservative reject/retain gates.
+- Frozen walk-forward validation and pair-transfer checks.
 - Cross-validation/promotion workflow.
 - Runtime-cycle orchestration.
 
@@ -231,5 +280,12 @@ Freeze for now:
 Focus:
 
 ```text
-historical coverage -> controlled three-family baseline -> Evidence Review -> reject/retain -> lifecycle evidence -> cross-validation -> paper validation
+historical coverage
+-> controlled three-family baseline
+-> V28.13 Evidence Review
+-> reject/retain
+-> V28.14 frozen walk-forward
+-> lifecycle/exact replay
+-> fresh holdout
+-> paper validation
 ```
