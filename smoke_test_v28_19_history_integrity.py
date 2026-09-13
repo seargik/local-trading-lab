@@ -135,7 +135,7 @@ class GapRepairSession:
         return FakeResponse([])
 
 
-# Seed a store with one internal hole: 00:00, 02:00, 03:00.  Update-only should
+# Seed a store with one internal hole: 00:00, 02:00, 03:00. Update-only should
 # overlap the two latest candles, then the integrity pass should repair 01:00.
 with tempfile.TemporaryDirectory() as tmp:
     root = Path(tmp)
@@ -195,7 +195,9 @@ with tempfile.TemporaryDirectory() as tmp:
         end="2026-01-01T05:00:00Z",
         store_root=root,
     )
-    if not after["continuity_ok"] or after["rows"] != 6:
-        raise AssertionError(f"Repaired store is not continuous: {after}")
+    # A 1h candle opening exactly at the 05:00 cutoff would close at 06:00 and
+    # must not be stored. The valid continuous closed sequence is 00:00..04:00.
+    if not after["continuity_ok"] or after["rows"] != 5:
+        raise AssertionError(f"Repaired store is not continuous through the last closed candle: {after}")
 
 print("V28.19 smoke test passed: retries, closed-candle filtering, overlap refresh, pruning and gap repair are available.")
