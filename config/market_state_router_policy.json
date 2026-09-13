@@ -1,0 +1,42 @@
+{
+  "version": "28.16-market-state-router-v1",
+  "notes": "Explainable market-state and adaptive-routing policy. Research/display layer only; does not gate paper/live execution.",
+  "confidence": {
+    "min_candidate": 55,
+    "medium": 70,
+    "high": 85,
+    "htf_alignment_bonus": 5,
+    "structure_alignment_bonus": 5,
+    "htf_conflict_penalty": 10,
+    "mixed_direction_penalty": 5
+  },
+  "risk_by_confidence": [
+    {"min": 0, "max": 54.999, "multiplier": 0.0},
+    {"min": 55, "max": 69.999, "multiplier": 0.5},
+    {"min": 70, "max": 84.999, "multiplier": 0.75},
+    {"min": 85, "max": 100, "multiplier": 1.0}
+  ],
+  "volatility": {
+    "atr_low": 0.008,
+    "atr_high": 0.03,
+    "atr_extreme": 0.045,
+    "panic_score_extreme": 70
+  },
+  "range_edges": {
+    "lower": 0.20,
+    "upper": 0.80
+  },
+  "state_routes": {
+    "no_trade_data_missing": {"action": "WAIT", "preferred_family": "none", "max_risk": 0.0, "direction_mode": "none"},
+    "compression_building": {"action": "PREPARE_BREAKOUT", "preferred_family": "compression_breakout", "max_risk": 0.0, "direction_mode": "none"},
+    "breakout_attempt": {"action": "TRADE_CANDIDATE", "preferred_family": "compression_breakout", "max_risk": 0.75, "direction_mode": "lifecycle"},
+    "trend_entering": {"action": "PREPARE_PULLBACK", "preferred_family": "trend_pullback", "max_risk": 0.0, "direction_mode": "lifecycle"},
+    "trend_pullback_entry": {"action": "TRADE_CANDIDATE", "preferred_family": "trend_pullback", "max_risk": 1.0, "direction_mode": "lifecycle"},
+    "trend_running": {"action": "WAIT_FOR_PULLBACK", "preferred_family": "trend_pullback", "max_risk": 0.0, "direction_mode": "lifecycle"},
+    "trend_extended_late": {"action": "PROTECT_OR_WAIT", "preferred_family": "none", "max_risk": 0.0, "direction_mode": "none"},
+    "trend_exhaustion": {"action": "WAIT_FOR_REVERSAL_CONFIRMATION", "preferred_family": "none", "max_risk": 0.0, "direction_mode": "none"},
+    "range_chop": {"action": "RANGE_EDGE_ONLY", "preferred_family": "range_reversion", "max_risk": 0.75, "direction_mode": "range_edge"},
+    "liquidity_sweep_reversal_risk": {"action": "WAIT_FOR_REVERSAL_CONFIRMATION", "preferred_family": "none", "max_risk": 0.0, "direction_mode": "none"},
+    "panic_volatility": {"action": "WAIT", "preferred_family": "none", "max_risk": 0.0, "direction_mode": "none"}
+  }
+}

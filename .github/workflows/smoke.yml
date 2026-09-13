@@ -33,3 +33,4 @@ jobs:
           python smoke_test_v28_13_evidence_review.py
           python smoke_test_v28_14_walk_forward.py
           python smoke_test_v28_15_fresh_holdout.py
+          python smoke_test_v28_16_market_state_router.py
