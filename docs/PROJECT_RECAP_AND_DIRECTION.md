@@ -1,6 +1,6 @@
 # Local Trading Lab — Project Recap and Direction
 
-_Last updated for V28.14._
+_Last updated for V28.15._
 
 ## Source of truth
 
@@ -25,6 +25,7 @@ seargik/local-trading-lab
 - **V28.12**: OHLCV-only Compression Breakout Benchmark so all three core families can be replayed on the same historical data source.
 - **V28.13**: Evidence Review / Research Scorecard that converts completed research batches into conservative reject/retain/cross-validation decisions.
 - **V28.14**: frozen-payload walk-forward validation with anchored chronological holdouts, symbol stability, LONG/SHORT diagnostics and pair-transfer checks.
+- **V28.15**: tamper-evident research freeze plus a fixed future-data holdout that starts only after the freeze cutoff.
 
 ## Current architecture
 
@@ -50,10 +51,11 @@ Strategy Family Registry
 
 Completed core backtests
   -> V28.13 Evidence Review
-  -> reject / insufficient / promising / cross-validation candidate
   -> V28.14 frozen walk-forward stability test
-  -> lifecycle / exact replay / fresh holdout for survivors
-  -> paper validation only later
+  -> V28.15 freeze exact candidate
+  -> wait for genuinely future candles
+  -> fixed fresh holdout
+  -> paper validation only after a pass
 ```
 
 ## Data policy
@@ -85,7 +87,7 @@ A local crypto market-state and strategy-validation lab.
 Core workflow:
 
 ```text
-Data / History -> Market State -> Strategy Evidence -> Evidence Review -> Walk-forward -> Paper validation -> possible live execution later
+Data / History -> Market State -> Strategy Evidence -> Evidence Review -> Walk-forward -> Fresh Holdout -> Paper validation -> possible live execution later
 ```
 
 ## Simplified product shape
@@ -95,7 +97,8 @@ Data / History -> Market State -> Strategy Evidence -> Evidence Review -> Walk-f
 3. **Strategy Evidence** — explicit family registry, narrow research batches, friction-aware backtests and lifecycle studies.
 4. **Evidence Review** — conservative scorecard that rejects weak evidence early instead of encouraging endless tuning.
 5. **Walk-Forward Validation** — frozen-payload chronological stability and pair-transfer tests for V28.13 survivors.
-6. **Runtime Cycle** — one safe operation that keeps data and market-state research fresh.
+6. **Fresh Holdout** — tamper-evident freeze and a fixed future-data validation window that did not exist at candidate-selection time.
+7. **Runtime Cycle** — one safe operation that keeps data and market-state research fresh.
 
 ## Core research protocol
 
@@ -127,33 +130,17 @@ Default execution assumptions use the `binance_usdm_taker_light` friction preset
 
 The richer compression strategies currently depend on historical open interest and/or order-book data, which the long-history store does not contain.
 
-V28.12 therefore adds:
-
-```text
-OHLCV Compression Breakout Benchmark
-```
-
-It is `benchmark_only`, uses only OHLCV-derived breakout/compression/volume/HTF features, and is injected into research jobs only when the compression family otherwise has no historically replayable saved strategy. It is not automatically placed in live or paper strategy slots.
+V28.12 therefore adds `OHLCV Compression Breakout Benchmark` as a `benchmark_only` research control. It is not automatically placed in live or paper strategy slots.
 
 ### V28.13 evidence policy
 
-Evidence Review does not use a hidden model score. Its thresholds are stored in:
-
-```text
-config/research_evidence_policy.json
-```
-
-The review focuses on sample size, positive net expectancy after friction, profit factor, drawdown, pair stability, month stability and friction drag. Win rate is displayed but intentionally is not a promotion gate.
+Evidence Review does not use a hidden model score. Its thresholds are stored in `config/research_evidence_policy.json` and focus on sample size, positive net expectancy after friction, profit factor, drawdown, pair stability, month stability and friction drag.
 
 Benchmark-only strategies can provide promising concept evidence, but V28.13 blocks them from direct production-oriented cross-validation candidate status.
 
 ### V28.14 walk-forward policy
 
-Walk-forward thresholds are versioned in:
-
-```text
-config/walk_forward_policy.json
-```
+Walk-forward thresholds are versioned in `config/walk_forward_policy.json`.
 
 For an approximately 12-month source run the default fold design is:
 
@@ -163,11 +150,39 @@ train months 1-8  -> test months 9-10
 train months 1-10 -> test months 11-12
 ```
 
-The strategy payload is hashed before queueing and must remain byte-equivalent at the semantic JSON level in every saved validation result. V28.14 changes only the chronological test window and metadata; it does not retune strategy parameters between folds.
+The complete strategy payload is hashed and must remain unchanged across validation folds. V28.14 changes only chronological test windows and metadata; it does not retune parameters between folds.
 
-V28.14 also evaluates whether evidence seen on one training symbol transfers to other symbols in forward windows.
+Important caveat: V28.14 is a strong temporal-stability test but not a pristine untouched future holdout because V28.13 selected the candidate after seeing the same 12-month research set.
 
-Important caveat: because V28.13 currently sees the full 12-month research result before choosing a candidate, V28.14 is a strong **temporal-stability** test but not a pristine untouched future holdout. A genuinely fresh period is still required before paper/live promotion.
+### V28.15 fresh holdout policy
+
+V28.15 closes that methodology gap. Only a V28.14 `pass_for_next_validation` can be frozen.
+
+The freeze records:
+
+```text
+strategy payload + SHA-256
+execution/friction config
+symbols and timeframes
+source run and V28.14 id
+policy versions
+UTC cutoff
+fixed future start/end dates
+whole-record SHA-256
+```
+
+The first eligible holdout date is the next UTC date after the freeze cutoff, so no partially observed freeze-day candle can leak into the future sample.
+
+Default policy in `config/fresh_holdout_policy.json` uses a fixed 60-day holdout. A 30-day observation milestone is reported, but preliminary evaluation is disabled by default. The endpoint is fixed at freeze time to avoid repeated peeking or cherry-picking.
+
+Fresh-holdout runtime artifacts stay under:
+
+```text
+data/backtest_reviews/research_freezes/
+data/backtest_reviews/fresh_holdout_scorecards/
+```
+
+and remain ignored by Git.
 
 ## V28.10 operating model
 
@@ -182,24 +197,17 @@ incremental history refresh
 -> runtime report
 ```
 
-Research preparation remains opt-in and is guarded by history readiness and duplicate-job checks.
-
-Safe inline analysis explicitly keeps:
-
-```text
-auto_paper_mode = false
-live_bundle_mode = false
-```
+Research preparation remains opt-in and is guarded by history readiness and duplicate-job checks. Safe inline analysis keeps `auto_paper_mode = false` and `live_bundle_mode = false`.
 
 ## What is experimental
 
 - Lifecycle fit remains evidence, not a hard paper/live rule.
 - V28.8 is post-trade counterfactual filtering, not exact signal-path replay.
 - The OHLCV compression benchmark is a research control, not evidence of production alpha.
-- V28.13 and V28.14 thresholds are versioned research policy, not universal market truths.
+- V28.13–V28.15 thresholds are versioned research policy, not universal market truths.
 - V28.14 same-history walk-forward is not equivalent to a never-seen future holdout.
+- A V28.15 fresh-holdout pass is stronger evidence but is still not live-trading permission.
 - Historical OHLCV contains candles only; funding, open interest, liquidations and order-book history are separate datasets.
-- One successful run is not enough to promote a strategy.
 - Runtime scheduling is not yet persistent/24x7; V28.10 is an on-demand cycle.
 
 ## What should not be trusted yet
@@ -210,7 +218,8 @@ live_bundle_mode = false
 - Results before execution friction.
 - Strategy selection from too few trades.
 - Walk-forward results where the strategy payload changed between folds.
-- Any live execution behavior that has not passed historical and paper validation.
+- A holdout whose strategy/config/window changed after its freeze.
+- Any live execution behavior that has not passed historical, fresh-holdout and paper validation.
 
 ## Validation ladder
 
@@ -220,24 +229,24 @@ historical coverage
 -> V28.13 Evidence Review
 -> reject weak families early
 -> V28.14 frozen walk-forward stability
--> lifecycle counterfactual / exact replay for survivors
--> fresh unseen holdout
--> paper validation
+-> V28.15 freeze exact survivor
+-> genuinely future fixed holdout
+-> paper validation without retuning
 -> live execution only later
 ```
 
 ## Immediate next step after real history is available
 
 - Run the first 12-month V28.12 three-family evidence batch on BTC/ETH/SOL.
-- Open V28.13 Evidence Review and let the explicit policy classify the results.
-- Reject weak families early rather than tuning them indefinitely.
+- Let V28.13 reject weak evidence.
 - Queue V28.14 only for genuine non-benchmark `cross_validation_candidate` results.
-- Treat V28.14 passes as permission for stronger validation, not as production approval.
-- Use V28.8 lifecycle filtering only on families that show baseline and walk-forward promise.
+- Freeze only V28.14 `pass_for_next_validation` survivors in V28.15.
+- Keep the incremental history updater running so future holdout data accumulates naturally.
+- Do not edit a frozen strategy while its future-data clock is running; a redesign creates a new freeze and a new clock.
 
 ## Later
 
-- Reserve a genuinely fresh future holdout that V28.13 never used for candidate selection.
+- Add a paper-validation protocol only after a V28.15 pass exists.
 - Add historical OI/funding only if evidence suggests the richer derivatives strategies are worth the extra data complexity.
 - Schedule the runtime cycle hourly/daily on the chosen runtime.
 - Mobile-first dashboard refinement.
