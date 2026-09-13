@@ -1,0 +1,3 @@
+from app_src.shared_account_ui import render_shared_account_replay
+
+render_shared_account_replay()
