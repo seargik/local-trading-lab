@@ -283,7 +283,9 @@ def audit_store_integrity(
     work["open_time"] = pd.to_datetime(work["open_time"], utc=True, errors="coerce")
     work["close_time"] = pd.to_datetime(work.get("close_time"), utc=True, errors="coerce")
     work = work.dropna(subset=["open_time"]).sort_values("open_time").drop_duplicates(subset=["open_time"], keep="last").reset_index(drop=True)
-    cutoff = pd.Timestamp(now or datetime.now(timezone.utc)).tz_convert("UTC") if pd.Timestamp(now or datetime.now(timezone.utc)).tzinfo else pd.Timestamp(now or datetime.now(timezone.utc), tz="UTC")
+    cutoff = pd.to_datetime(now or datetime.now(timezone.utc), utc=True, errors="coerce")
+    if pd.isna(cutoff):
+        cutoff = pd.Timestamp.now(tz="UTC")
     unclosed_mask = work["close_time"].notna() & (work["close_time"] > cutoff)
     if "is_closed" in work.columns:
         unclosed_mask = unclosed_mask | (~work["is_closed"].fillna(False).astype(bool))
@@ -430,14 +432,18 @@ def backfill_symbol_history(
     requested_start_dt, end_dt = resolve_backfill_window(start=start, end=end, lookback=lookback)
     interval_ms = interval_to_milliseconds(interval)
     now_dt = datetime.now(timezone.utc)
-    prune_cutoff = min(end_dt, now_dt)
-    pruned_unclosed = prune_unclosed_candles(symbol, interval, cutoff=prune_cutoff, store_root=store_root)
+    # Prune only candles that are unfinished *now*.  An historical end date must
+    # never delete newer valid data already stored outside the requested window.
+    pruned_unclosed = prune_unclosed_candles(symbol, interval, cutoff=now_dt, store_root=store_root)
 
     start_dt = requested_start_dt
     overlap_bars = max(0, int(update_overlap_bars)) if update_only else 0
     update_start_from_store = latest_stored_open_time(symbol, interval, store_root=store_root) if update_only else None
     if update_start_from_store is not None:
-        candidate = update_start_from_store.to_pydatetime().astimezone(timezone.utc) - timedelta(milliseconds=interval_ms * overlap_bars)
+        if overlap_bars > 0:
+            candidate = update_start_from_store.to_pydatetime().astimezone(timezone.utc) - timedelta(milliseconds=interval_ms * (overlap_bars - 1))
+        else:
+            candidate = update_start_from_store.to_pydatetime().astimezone(timezone.utc) + timedelta(milliseconds=interval_ms)
         if candidate > start_dt:
             start_dt = candidate
 
@@ -465,7 +471,7 @@ def backfill_symbol_history(
         retry_backoff_seconds=retry_backoff_seconds,
     )
 
-    before = audit_store_integrity(symbol, interval, start=requested_start_dt, end=end_dt, store_root=store_root, now=prune_cutoff)
+    before = audit_store_integrity(symbol, interval, start=requested_start_dt, end=end_dt, store_root=store_root, now=now_dt)
     repair_attempts = 0
     repair_pages = 0
     repair_rows = 0
@@ -507,7 +513,7 @@ def backfill_symbol_history(
             repair_first = repair_first or stats.get("first_open_time")
             repair_last = stats.get("last_open_time") or repair_last
 
-    after = audit_store_integrity(symbol, interval, start=requested_start_dt, end=end_dt, store_root=store_root, now=prune_cutoff)
+    after = audit_store_integrity(symbol, interval, start=requested_start_dt, end=end_dt, store_root=store_root, now=now_dt)
     gaps_repaired = max(0, int(before["gap_count"]) - int(after["gap_count"]))
     integrity_status = "ready" if after["continuity_ok"] else ("gaps_remaining" if after["gap_count"] else "unclosed_rows_remaining")
     first_open = primary.get("first_open_time") or repair_first
