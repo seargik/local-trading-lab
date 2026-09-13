@@ -53,6 +53,7 @@ def main() -> int:
     assert reg["historical_ready"] is True
     assert reg["benchmark_only"] is True
     assert reg["required_data"] == ["ohlcv"]
+    assert benchmark["score_threshold"] == 72
 
     long_features = {
         "breakout_above_n_bar_high": True,
@@ -64,7 +65,7 @@ def main() -> int:
     }
     long_opinion = score_from_slot(long_features, strategy_payload_to_slot(benchmark))
     assert long_opinion.bias == "LONG"
-    assert long_opinion.score >= 70
+    assert long_opinion.score >= 72
 
     short_features = {
         "breakout_above_n_bar_high": False,
@@ -76,7 +77,19 @@ def main() -> int:
     }
     short_opinion = score_from_slot(short_features, strategy_payload_to_slot(benchmark))
     assert short_opinion.bias == "SHORT"
-    assert short_opinion.score >= 70
+    assert short_opinion.score >= 72
+
+    no_breakout = dict(long_features)
+    no_breakout["breakout_above_n_bar_high"] = False
+    no_breakout_opinion = score_from_slot(no_breakout, strategy_payload_to_slot(benchmark))
+    assert no_breakout_opinion.bias == "WAIT"
+    assert no_breakout_opinion.score < 72
+
+    no_compression = dict(long_features)
+    no_compression["compression_before_breakout"] = False
+    no_compression_opinion = score_from_slot(no_compression, strategy_payload_to_slot(benchmark))
+    assert no_compression_opinion.bias == "WAIT"
+    assert no_compression_opinion.score < 72
 
     saved = _saved_strategy_rows()
     selected = select_core_strategies(saved, CORE_RESEARCH_FAMILIES, max_per_family=1)
