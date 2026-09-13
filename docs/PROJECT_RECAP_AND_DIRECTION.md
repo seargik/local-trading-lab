@@ -1,6 +1,6 @@
 # Local Trading Lab — Project Recap and Direction
 
-_Last updated for V28.13._
+_Last updated for V28.14._
 
 ## Source of truth
 
@@ -24,6 +24,7 @@ seargik/local-trading-lab
 - **V28.11**: explicit Strategy Family Registry and research-readiness audit.
 - **V28.12**: OHLCV-only Compression Breakout Benchmark so all three core families can be replayed on the same historical data source.
 - **V28.13**: Evidence Review / Research Scorecard that converts completed research batches into conservative reject/retain/cross-validation decisions.
+- **V28.14**: frozen-payload walk-forward validation with anchored chronological holdouts, symbol stability, LONG/SHORT diagnostics and pair-transfer checks.
 
 ## Current architecture
 
@@ -48,10 +49,11 @@ Strategy Family Registry
   -> benchmark-only controls where needed
 
 Completed core backtests
-  -> Evidence Review scorecard
+  -> V28.13 Evidence Review
   -> reject / insufficient / promising / cross-validation candidate
-  -> lifecycle counterfactual only for survivors
-  -> cross-validation / promotion review
+  -> V28.14 frozen walk-forward stability test
+  -> lifecycle / exact replay / fresh holdout for survivors
+  -> paper validation only later
 ```
 
 ## Data policy
@@ -83,16 +85,17 @@ A local crypto market-state and strategy-validation lab.
 Core workflow:
 
 ```text
-Data / History -> Market State -> Strategy Evidence -> Evidence Review -> Cross-validation -> Paper validation -> possible live execution later
+Data / History -> Market State -> Strategy Evidence -> Evidence Review -> Walk-forward -> Paper validation -> possible live execution later
 ```
 
 ## Simplified product shape
 
 1. **Data / History** — coverage, freshness, gap audit, backfill, update-only refresh.
 2. **Market State** — lifecycle, direction, confidence, allowed families, current fit.
-3. **Strategy Evidence** — explicit family registry, narrow research batches, friction-aware backtests, lifecycle-gate study, cross-validation, promotion/rejection.
-4. **Evidence Review** — one conservative scorecard that rejects weak evidence early instead of encouraging endless tuning.
-5. **Runtime Cycle** — one safe operation that keeps data and market-state research fresh.
+3. **Strategy Evidence** — explicit family registry, narrow research batches, friction-aware backtests and lifecycle studies.
+4. **Evidence Review** — conservative scorecard that rejects weak evidence early instead of encouraging endless tuning.
+5. **Walk-Forward Validation** — frozen-payload chronological stability and pair-transfer tests for V28.13 survivors.
+6. **Runtime Cycle** — one safe operation that keeps data and market-state research fresh.
 
 ## Core research protocol
 
@@ -144,6 +147,28 @@ The review focuses on sample size, positive net expectancy after friction, profi
 
 Benchmark-only strategies can provide promising concept evidence, but V28.13 blocks them from direct production-oriented cross-validation candidate status.
 
+### V28.14 walk-forward policy
+
+Walk-forward thresholds are versioned in:
+
+```text
+config/walk_forward_policy.json
+```
+
+For an approximately 12-month source run the default fold design is:
+
+```text
+train months 1-6  -> test months 7-8
+train months 1-8  -> test months 9-10
+train months 1-10 -> test months 11-12
+```
+
+The strategy payload is hashed before queueing and must remain byte-equivalent at the semantic JSON level in every saved validation result. V28.14 changes only the chronological test window and metadata; it does not retune strategy parameters between folds.
+
+V28.14 also evaluates whether evidence seen on one training symbol transfers to other symbols in forward windows.
+
+Important caveat: because V28.13 currently sees the full 12-month research result before choosing a candidate, V28.14 is a strong **temporal-stability** test but not a pristine untouched future holdout. A genuinely fresh period is still required before paper/live promotion.
+
 ## V28.10 operating model
 
 Default runtime sequence:
@@ -171,7 +196,8 @@ live_bundle_mode = false
 - Lifecycle fit remains evidence, not a hard paper/live rule.
 - V28.8 is post-trade counterfactual filtering, not exact signal-path replay.
 - The OHLCV compression benchmark is a research control, not evidence of production alpha.
-- V28.13 verdict thresholds are versioned triage policy, not universal market truths.
+- V28.13 and V28.14 thresholds are versioned research policy, not universal market truths.
+- V28.14 same-history walk-forward is not equivalent to a never-seen future holdout.
 - Historical OHLCV contains candles only; funding, open interest, liquidations and order-book history are separate datasets.
 - One successful run is not enough to promote a strategy.
 - Runtime scheduling is not yet persistent/24x7; V28.10 is an on-demand cycle.
@@ -183,6 +209,7 @@ live_bundle_mode = false
 - Lifecycle gates that only improve one pair or period.
 - Results before execution friction.
 - Strategy selection from too few trades.
+- Walk-forward results where the strategy payload changed between folds.
 - Any live execution behavior that has not passed historical and paper validation.
 
 ## Validation ladder
@@ -192,10 +219,9 @@ historical coverage
 -> three-family baseline backtest
 -> V28.13 Evidence Review
 -> reject weak families early
--> per-pair / per-period stability review
--> lifecycle counterfactual study for survivors
--> exact replay only if justified
--> out-of-sample / cross-validation
+-> V28.14 frozen walk-forward stability
+-> lifecycle counterfactual / exact replay for survivors
+-> fresh unseen holdout
 -> paper validation
 -> live execution only later
 ```
@@ -205,11 +231,13 @@ historical coverage
 - Run the first 12-month V28.12 three-family evidence batch on BTC/ETH/SOL.
 - Open V28.13 Evidence Review and let the explicit policy classify the results.
 - Reject weak families early rather than tuning them indefinitely.
-- Send only genuinely promising saved strategies to cross-validation.
-- Use V28.8 lifecycle filtering only on families that show baseline promise.
+- Queue V28.14 only for genuine non-benchmark `cross_validation_candidate` results.
+- Treat V28.14 passes as permission for stronger validation, not as production approval.
+- Use V28.8 lifecycle filtering only on families that show baseline and walk-forward promise.
 
 ## Later
 
+- Reserve a genuinely fresh future holdout that V28.13 never used for candidate selection.
 - Add historical OI/funding only if evidence suggests the richer derivatives strategies are worth the extra data complexity.
 - Schedule the runtime cycle hourly/daily on the chosen runtime.
 - Mobile-first dashboard refinement.
