@@ -1,6 +1,6 @@
 # Local Trading Lab — Project Recap and Direction
 
-_Last updated for V28.12._
+_Last updated for V28.13._
 
 ## Source of truth
 
@@ -23,6 +23,7 @@ seargik/local-trading-lab
 - **V28.10**: Runtime Cycle for history refresh, coverage/gap checks, safe analysis, Market State snapshots, and guarded research preparation.
 - **V28.11**: explicit Strategy Family Registry and research-readiness audit.
 - **V28.12**: OHLCV-only Compression Breakout Benchmark so all three core families can be replayed on the same historical data source.
+- **V28.13**: Evidence Review / Research Scorecard that converts completed research batches into conservative reject/retain/cross-validation decisions.
 
 ## Current architecture
 
@@ -46,8 +47,10 @@ Strategy Family Registry
   -> historical data requirements
   -> benchmark-only controls where needed
 
-Saved backtests
-  -> lifecycle counterfactual lab
+Completed core backtests
+  -> Evidence Review scorecard
+  -> reject / insufficient / promising / cross-validation candidate
+  -> lifecycle counterfactual only for survivors
   -> cross-validation / promotion review
 ```
 
@@ -80,7 +83,7 @@ A local crypto market-state and strategy-validation lab.
 Core workflow:
 
 ```text
-Data / History -> Market State -> Strategy Evidence -> Cross-validation -> Paper validation -> possible live execution later
+Data / History -> Market State -> Strategy Evidence -> Evidence Review -> Cross-validation -> Paper validation -> possible live execution later
 ```
 
 ## Simplified product shape
@@ -88,7 +91,8 @@ Data / History -> Market State -> Strategy Evidence -> Cross-validation -> Paper
 1. **Data / History** — coverage, freshness, gap audit, backfill, update-only refresh.
 2. **Market State** — lifecycle, direction, confidence, allowed families, current fit.
 3. **Strategy Evidence** — explicit family registry, narrow research batches, friction-aware backtests, lifecycle-gate study, cross-validation, promotion/rejection.
-4. **Runtime Cycle** — one safe operation that keeps the first three modules fresh.
+4. **Evidence Review** — one conservative scorecard that rejects weak evidence early instead of encouraging endless tuning.
+5. **Runtime Cycle** — one safe operation that keeps data and market-state research fresh.
 
 ## Core research protocol
 
@@ -128,6 +132,18 @@ OHLCV Compression Breakout Benchmark
 
 It is `benchmark_only`, uses only OHLCV-derived breakout/compression/volume/HTF features, and is injected into research jobs only when the compression family otherwise has no historically replayable saved strategy. It is not automatically placed in live or paper strategy slots.
 
+### V28.13 evidence policy
+
+Evidence Review does not use a hidden model score. Its thresholds are stored in:
+
+```text
+config/research_evidence_policy.json
+```
+
+The review focuses on sample size, positive net expectancy after friction, profit factor, drawdown, pair stability, month stability and friction drag. Win rate is displayed but intentionally is not a promotion gate.
+
+Benchmark-only strategies can provide promising concept evidence, but V28.13 blocks them from direct production-oriented cross-validation candidate status.
+
 ## V28.10 operating model
 
 Default runtime sequence:
@@ -155,6 +171,7 @@ live_bundle_mode = false
 - Lifecycle fit remains evidence, not a hard paper/live rule.
 - V28.8 is post-trade counterfactual filtering, not exact signal-path replay.
 - The OHLCV compression benchmark is a research control, not evidence of production alpha.
+- V28.13 verdict thresholds are versioned triage policy, not universal market truths.
 - Historical OHLCV contains candles only; funding, open interest, liquidations and order-book history are separate datasets.
 - One successful run is not enough to promote a strategy.
 - Runtime scheduling is not yet persistent/24x7; V28.10 is an on-demand cycle.
@@ -173,24 +190,25 @@ live_bundle_mode = false
 ```text
 historical coverage
 -> three-family baseline backtest
+-> V28.13 Evidence Review
+-> reject weak families early
 -> per-pair / per-period stability review
--> lifecycle counterfactual study
+-> lifecycle counterfactual study for survivors
 -> exact replay only if justified
 -> out-of-sample / cross-validation
 -> paper validation
 -> live execution only later
 ```
 
-## Next roadmap
-
-### Immediate next step after real history is available
+## Immediate next step after real history is available
 
 - Run the first 12-month V28.12 three-family evidence batch on BTC/ETH/SOL.
-- Review trade counts, net expectancy, profit factor, drawdown and long/short asymmetry by family.
+- Open V28.13 Evidence Review and let the explicit policy classify the results.
 - Reject weak families early rather than tuning them indefinitely.
+- Send only genuinely promising saved strategies to cross-validation.
 - Use V28.8 lifecycle filtering only on families that show baseline promise.
 
-### Later
+## Later
 
 - Add historical OI/funding only if evidence suggests the richer derivatives strategies are worth the extra data complexity.
 - Schedule the runtime cycle hourly/daily on the chosen runtime.
