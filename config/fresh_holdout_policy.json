@@ -1,0 +1,24 @@
+{
+  "version": "28.15-fresh-holdout-v1",
+  "target_holdout_days": 60,
+  "minimum_observation_days": 30,
+  "allow_preliminary_queue": false,
+  "min_total_trades": 20,
+  "min_trades_per_symbol": 4,
+  "min_expectancy_r": 0.0,
+  "min_profit_factor": 1.05,
+  "min_positive_symbol_share": 0.67,
+  "max_drawdown_to_net_profit": 1.5,
+  "max_friction_drag_share_of_gross": 0.65,
+  "require_positive_net_pnl": true,
+  "require_payload_integrity": true,
+  "require_freeze_integrity": true,
+  "freeze_source_verdict": "pass_for_next_validation",
+  "notes": [
+    "The holdout window starts on the next UTC date after the freeze cutoff.",
+    "The default evaluation window is fixed at 60 full UTC days to avoid cherry-picking the end date.",
+    "Preliminary evaluation is disabled by default even after 30 days; progress can be observed but promotion decisions wait for the full target window.",
+    "Strategy payload, execution assumptions, symbols and timeframes are frozen before any holdout candle is observed.",
+    "A passing holdout is still research evidence, not permission for live execution."
+  ]
+}
