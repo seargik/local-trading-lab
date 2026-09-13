@@ -76,8 +76,10 @@ def _state_label(state: str) -> str:
 def _structure_state(features: dict[str, Any]) -> str:
     raw = _text(features, "market_structure")
     low = raw.lower()
-    bullish = any(token in low for token in ["bull", "hh", "hl", "higher_high", "higher_low"])
-    bearish = any(token in low for token in ["bear", "lh", "ll", "lower_high", "lower_low"])
+    normalized = low.replace("-", "_").replace("/", "_").replace(" ", "_")
+    parts = {part for part in normalized.split("_") if part}
+    bullish = "bull" in low or "bullish" in low or bool(parts.intersection({"hh", "hl", "higherhigh", "higherlow"}))
+    bearish = "bear" in low or "bearish" in low or bool(parts.intersection({"lh", "ll", "lowerhigh", "lowerlow"}))
     if bullish and not bearish:
         return "BULLISH"
     if bearish and not bullish:
@@ -187,20 +189,42 @@ def _risk_for_confidence(confidence: float, policy: dict[str, Any]) -> float:
     return 0.0
 
 
-def _route_direction(direction_mode: str, lifecycle_direction: str, features: dict[str, Any]) -> tuple[str, str | None]:
+def _route_direction(
+    direction_mode: str,
+    lifecycle_direction: str,
+    features: dict[str, Any],
+    policy: dict[str, Any],
+) -> tuple[str, str | None]:
     if direction_mode == "none":
         return "NONE", None
     if direction_mode == "lifecycle":
         direction = str(lifecycle_direction or "MIXED").upper()
         return direction if direction in {"LONG", "SHORT"} else "MIXED", None
     if direction_mode == "range_edge":
+        cfg = policy.get("range_edges") or {}
+        lower = float(cfg.get("lower", 0.20))
+        upper = float(cfg.get("upper", 0.80))
         pos = _num(features, "range_position_20", 0.5)
-        if pos <= 0.20:
+        if pos <= lower:
             return "LONG", "price is near the lower edge of the recent range"
-        if pos >= 0.80:
+        if pos >= upper:
             return "SHORT", "price is near the upper edge of the recent range"
         return "MIXED", "price is in the middle of the recent range"
     return "MIXED", None
+
+
+def _lifecycle_from_analysis(
+    analysis: dict[str, Any],
+    features: dict[str, Any],
+    htf_context: dict[str, Any],
+    symbol: str,
+    analysis_timeframe: str,
+) -> TrendLifecycleResult:
+    existing = analysis.get("lifecycle")
+    fields = list(TrendLifecycleResult.__dataclass_fields__)
+    if isinstance(existing, dict) and set(fields).issubset(existing):
+        return TrendLifecycleResult(**{field: existing.get(field) for field in fields})
+    return classify_trend_lifecycle(features, htf_context, symbol=symbol, analysis_tf=analysis_timeframe)
 
 
 def identify_market_state(
@@ -215,10 +239,7 @@ def identify_market_state(
     htf_context = dict(analysis.get("htf_context") or {})
     policy = dict(policy or load_market_state_policy())
 
-    existing = analysis.get("lifecycle")
-    lifecycle = TrendLifecycleResult(**existing) if isinstance(existing, dict) and set(TrendLifecycleResult.__dataclass_fields__).issubset(existing) else classify_trend_lifecycle(
-        features, htf_context, symbol=symbol, analysis_tf=analysis_timeframe
-    )
+    lifecycle = _lifecycle_from_analysis(analysis, features, htf_context, symbol, analysis_timeframe)
     reasons = list(lifecycle.reason or [])
     direction = str(lifecycle.trend_direction or "MIXED").upper()
     state = _refine_exhaustion(lifecycle.lifecycle_state, direction, features, reasons)
@@ -232,7 +253,9 @@ def identify_market_state(
     route_cfg = dict((policy.get("state_routes") or {}).get(state) or {})
     preferred_family = str(route_cfg.get("preferred_family") or "none")
     action = str(route_cfg.get("action") or "WAIT")
-    route_direction, range_reason = _route_direction(str(route_cfg.get("direction_mode") or "none"), direction, features)
+    route_direction, range_reason = _route_direction(
+        str(route_cfg.get("direction_mode") or "none"), direction, features, policy
+    )
     if range_reason:
         reasons.append(range_reason)
 
@@ -255,6 +278,7 @@ def identify_market_state(
         risk = min(_risk_for_confidence(confidence, policy), float(route_cfg.get("max_risk", 1.0)))
         reasons.append(f"risk is capped at {risk:.2f}x by confidence and state")
 
+    exit_family = "reversal_defensive" if state == "trend_exhaustion" else lifecycle.exit_family
     metrics = {
         "close": features.get("close"),
         "trend_regime_score": _num(features, "trend_regime_score"),
@@ -289,7 +313,7 @@ def identify_market_state(
         route_direction=route_direction,
         risk_multiplier=round(float(risk), 2),
         entry_mode=lifecycle.entry_mode,
-        exit_family=lifecycle.exit_family,
+        exit_family=exit_family,
         reason=list(dict.fromkeys(reasons))[:12],
         metrics=metrics,
         policy_version=str(policy.get("version") or ""),
