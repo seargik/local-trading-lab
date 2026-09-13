@@ -22,6 +22,10 @@
     "atr_extreme": 0.045,
     "panic_score_extreme": 70
   },
+  "range_edges": {
+    "lower": 0.20,
+    "upper": 0.80
+  },
   "state_routes": {
     "no_trade_data_missing": {"action": "WAIT", "preferred_family": "none", "max_risk": 0.0, "direction_mode": "none"},
     "compression_building": {"action": "PREPARE_BREAKOUT", "preferred_family": "compression_breakout", "max_risk": 0.0, "direction_mode": "none"},
