@@ -27,9 +27,11 @@ The benchmark uses only features derived from OHLCV and higher-timeframe OHLCV:
 
 ## Rule structure
 
-Long and short sides each have a 100-point rule set. The action threshold is 70.
+Long and short sides each have a 100-point rule set. The action threshold is **72**.
 
-The strongest evidence is the actual 20-bar breakout. Prior compression and volume expansion add confirmation, while close strength and non-opposing HTF direction provide secondary confirmation.
+The actual 20-bar breakout carries 35 points and prior compression carries 30. Secondary evidence contributes the remaining 35 points. This weighting is intentional: without the breakout the maximum score is 65, and without prior compression the maximum is 70. Therefore an actionable score requires **both** the breakout and prior compression, plus at least one secondary confirmation.
+
+Secondary confirmations are volume expansion, breakout close strength, and non-opposing HTF direction.
 
 Default research exit assumptions:
 
