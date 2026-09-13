@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import streamlit as st
 
+from .adaptive_evidence_report_v2820 import save_adaptive_evidence_snapshot
 from .adaptive_evidence_v2820 import (
     analyze_research_job,
     completed_adaptive_source_jobs,
@@ -44,7 +45,7 @@ def render_adaptive_evidence_lab() -> None:
         st.warning("No completed core research batch is available yet. Populate history and rerun the controlled research batch first.")
         return
 
-    options = { _job_label(job): job for job in jobs }
+    options = {_job_label(job): job for job in jobs}
     selected_label = st.selectbox("Completed research job", options=list(options.keys()))
     job = options[selected_label]
 
@@ -64,9 +65,12 @@ def render_adaptive_evidence_lab() -> None:
     try:
         with st.spinner("Replaying market state and joining router decisions to saved trades..."):
             result = analyze_research_job(job, policy=policy)
+            report_dir = save_adaptive_evidence_snapshot(result, source_job=job, policy=policy)
     except Exception as exc:
         st.error(f"Adaptive evidence run failed: {exc}")
         return
+
+    st.caption(f"Reproducible evidence snapshot: {report_dir}")
 
     verdict = result.verdict
     name = str(verdict.get("verdict") or "unknown")
