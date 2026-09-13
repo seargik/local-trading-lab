@@ -23,11 +23,11 @@ ALL_SYMBOLS = CORE_RESEARCH_SYMBOLS + ["LTCUSDT", "BNBUSDT", "UNIUSDT", "AAVEUSD
 
 def render_research_command_center() -> None:
     st.title("Research Command Center")
-    st.caption("V28.12 · Data to Market State to controlled three-family evidence")
+    st.caption("V28.20 · Data → Market State → controlled family research → adaptive economic evidence")
     storage = Storage(LAB_DB_PATH)
     symbols = st.multiselect("Dashboard pairs", ALL_SYMBOLS, default=ALL_SYMBOLS) or CORE_RESEARCH_SYMBOLS
 
-    tab_state, tab_runner = st.tabs(["Market State", "Research Runner"])
+    tab_state, tab_runner, tab_economic = st.tabs(["Market State", "Research Runner", "Economic Gate"])
     with tab_state:
         frame = build_market_state_dashboard(storage=storage, symbols=symbols)
         if frame.empty:
@@ -95,7 +95,7 @@ def render_research_command_center() -> None:
         if not can_queue:
             st.warning("Batch queue is blocked until every selected family and selected strategy is explicitly classified and historically ready.")
         elif set(selected_families) == set(CORE_RESEARCH_FAMILIES):
-            st.success("V28.12 three-family protocol is structurally ready. The actual 12-month OHLCV datasets still need to be present on the runtime before running the worker.")
+            st.success("Three-family protocol is structurally ready. The actual historical OHLCV datasets still need to exist and pass integrity checks on the runtime.")
 
         plan = build_research_plan(matched, selected_symbols or CORE_RESEARCH_SYMBOLS)
         with st.expander("Experiment matrix"):
@@ -109,7 +109,7 @@ def render_research_command_center() -> None:
                 max_per_family=int(max_per_family),
                 lookback_days=int(lookback_days),
                 config_overrides=dict(DEFAULT_RESEARCH_CONFIG),
-                comment="Queued from V28.12 three-family OHLCV research protocol.",
+                comment="Queued from the controlled three-family OHLCV research protocol.",
             )
             if result.get("queued"):
                 st.success(f"Queued {result.get('protocol_version')}: {result.get('job_path')}")
@@ -122,3 +122,21 @@ def render_research_command_center() -> None:
             st.caption("No research jobs yet.")
         else:
             st.dataframe(jobs, width="stretch", hide_index=True)
+
+    with tab_economic:
+        st.subheader("V28.20 Adaptive Economic Gate")
+        st.write(
+            "After a controlled research batch completes, test whether Market State + Adaptive Router actually improves economic evidence rather than merely changing labels. "
+            "The gate compares static family trades with causal router-selected trades, measures WAIT value, friction headroom, pair/month stability and trade overlap."
+        )
+        st.warning(
+            "An 'adaptive edge candidate' is still historical research evidence. It is not expected profit, not a portfolio return, and not permission to enable paper/live execution."
+        )
+        st.code(
+            "trustworthy OHLCV → closed-bar backtests → static family evidence → adaptive economic gate → walk-forward → fresh holdout → paper",
+            language="text",
+        )
+        try:
+            st.page_link("pages/09_Adaptive_Evidence_Lab.py", label="Open Adaptive Evidence & Economic Viability Lab", icon="📈")
+        except Exception:
+            st.caption("Open the 'Adaptive Evidence Lab' page from the Streamlit sidebar.")
