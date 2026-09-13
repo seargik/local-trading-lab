@@ -119,6 +119,60 @@ data/market_state_history/
 
 and ignore those runtime artifacts in Git.
 
+## V28.11 — Explicit Strategy Family Registry
+
+Decision: research-family assignment must use explicit registry metadata rather than strategy-name heuristics when deciding research readiness.
+
+Registry records:
+
+```text
+strategy family
+research inclusion
+historical-data requirements
+historical readiness
+priority
+```
+
+Reason: a strategy should not enter a controlled family comparison merely because its name happens to resemble that family.
+
+Finding: the saved trend-pullback and range-reversion candidates can be replayed from OHLCV, while the existing compression candidates require historical OI and/or order-book inputs.
+
+## V28.12 — OHLCV Compression Breakout Benchmark
+
+Decision: do not fake missing derivatives/order-book history and do not drop the compression family from the comparison. Add one explicit OHLCV-only benchmark control instead.
+
+Benchmark:
+
+```text
+OHLCV Compression Breakout Benchmark
+```
+
+Inputs:
+
+```text
+20-bar breakout
+prior-bar compression vs recent BB/ATR medians
+volume ratio
+breakout close strength
+HTF OHLCV alignment
+```
+
+Decision: mark the benchmark `benchmark_only=true` and load it directly into research jobs when compression otherwise has no replayable saved strategy.
+
+Constraint: the benchmark is not automatically saved into live/paper strategy slots and is not a production recommendation.
+
+Decision: the three-family protocol should only queue when every selected family has an explicitly classified, historically replayable candidate.
+
+Default controlled protocol remains:
+
+```text
+BTCUSDT / ETHUSDT / SOLUSDT
+1h entry / 4h analysis
+365 days
+realistic Binance USD-M friction
+trend_pullback vs compression_breakout vs range_reversion
+```
+
 ## Current strategic decision
 
 Continue the project, but simplify aggressively.
@@ -128,13 +182,14 @@ Keep:
 - Historical data store and incremental refresh.
 - Backtest/replay foundation.
 - Trend lifecycle router and fit labels.
+- Explicit strategy-family registry.
 - Friction-aware evaluation.
 - Cross-validation/promotion workflow.
 - Runtime-cycle orchestration.
 
 Freeze for now:
 
-- New strategy proliferation.
+- New strategy proliferation outside controlled research needs.
 - Live execution changes.
 - More complex bundle logic.
 - LLM-generated trading decisions.
@@ -142,5 +197,5 @@ Freeze for now:
 Focus:
 
 ```text
-historical coverage -> narrow research batch -> lifecycle evidence -> cross-validation -> paper validation
+historical coverage -> controlled three-family baseline -> reject/retain -> lifecycle evidence -> cross-validation -> paper validation
 ```

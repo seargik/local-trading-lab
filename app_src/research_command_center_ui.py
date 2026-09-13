@@ -23,7 +23,7 @@ ALL_SYMBOLS = CORE_RESEARCH_SYMBOLS + ["LTCUSDT", "BNBUSDT", "UNIUSDT", "AAVEUSD
 
 def render_research_command_center() -> None:
     st.title("Research Command Center")
-    st.caption("V28.11 · Data to Market State to Strategy Evidence")
+    st.caption("V28.12 · Data to Market State to controlled three-family evidence")
     storage = Storage(LAB_DB_PATH)
     symbols = st.multiselect("Dashboard pairs", ALL_SYMBOLS, default=ALL_SYMBOLS) or CORE_RESEARCH_SYMBOLS
 
@@ -41,6 +41,7 @@ def render_research_command_center() -> None:
 
     with tab_runner:
         st.subheader("Core Research Runner")
+        st.caption("The compression family uses an OHLCV-only research benchmark when no historically replayable saved compression strategy is available. It is not a live/paper strategy.")
         selected_symbols = st.multiselect("Research pairs", symbols, default=[s for s in CORE_RESEARCH_SYMBOLS if s in symbols])
         selected_families = st.multiselect("Strategy families", CORE_RESEARCH_FAMILIES, default=CORE_RESEARCH_FAMILIES)
         c1, c2 = st.columns(2)
@@ -72,20 +73,29 @@ def render_research_command_center() -> None:
             display_rows.append({
                 "family": item.get("research_family"),
                 "strategy": item.get("strategy_name"),
+                "source": item.get("research_source") or reg.get("source") or "saved_strategy",
+                "benchmark_only": bool(item.get("benchmark_only", False)),
                 "version": item.get("version_no"),
-                "registry_family": reg.get("strategy_family"),
                 "registry_ready": ready_strategy,
+                "required_data": ", ".join(item.get("required_data") or reg.get("required_data") or []),
                 "missing_data": ", ".join(reg.get("missing_historical_data") or []),
             })
         if display_rows:
             st.dataframe(pd.DataFrame(display_rows), width="stretch", hide_index=True)
         else:
-            st.warning("No saved strategies map to the selected core families yet.")
+            st.warning("No explicitly classified, historically ready strategies map to the selected core families yet.")
 
-        selected_families_ready = bool(len(selected_registry) == len(selected_families) and (selected_registry["status"] == "ready").all())
+        represented = {str(item.get("research_family") or "") for item in matched}
+        selected_families_ready = bool(
+            len(selected_registry) == len(selected_families)
+            and (selected_registry["status"] == "ready").all()
+            and all(family in represented for family in selected_families)
+        )
         can_queue = bool(matched and selected_symbols and selected_families_ready and strict_match_ok)
         if not can_queue:
             st.warning("Batch queue is blocked until every selected family and selected strategy is explicitly classified and historically ready.")
+        elif set(selected_families) == set(CORE_RESEARCH_FAMILIES):
+            st.success("V28.12 three-family protocol is structurally ready. The actual 12-month OHLCV datasets still need to be present on the runtime before running the worker.")
 
         plan = build_research_plan(matched, selected_symbols or CORE_RESEARCH_SYMBOLS)
         with st.expander("Experiment matrix"):
@@ -99,10 +109,10 @@ def render_research_command_center() -> None:
                 max_per_family=int(max_per_family),
                 lookback_days=int(lookback_days),
                 config_overrides=dict(DEFAULT_RESEARCH_CONFIG),
-                comment="Queued after V28.11 registry readiness checks.",
+                comment="Queued from V28.12 three-family OHLCV research protocol.",
             )
             if result.get("queued"):
-                st.success(f"Queued: {result.get('job_path')}")
+                st.success(f"Queued {result.get('protocol_version')}: {result.get('job_path')}")
             else:
                 st.error(result.get("reason") or "Could not queue batch")
 
