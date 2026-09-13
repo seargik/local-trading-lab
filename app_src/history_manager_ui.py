@@ -30,7 +30,7 @@ def _display_time_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 def render_history_manager_tab() -> None:
     st.header("Data / History Manager")
-    st.caption("V28.7: inspect local OHLCV coverage, audit gaps, and launch historical backfills before analysis/backtesting.")
+    st.caption("V28.19: inspect OHLCV coverage and continuity, exclude unfinished candles, repair gaps, and refresh history safely before research.")
 
     st.warning(
         "Historical candles are stored locally under data/ohlcv_store and are intentionally not committed to Git. "
@@ -44,7 +44,7 @@ def render_history_manager_tab() -> None:
             "USDT pairs",
             options=default_symbols,
             default=default_symbols,
-            help="Default target set requested for V28.7: BTC, ETH, SOL, LTC, BNB, UNI, AAVE, XRP, TRX with USDT quote.",
+            help="Default target set: BTC, ETH, SOL, LTC, BNB, UNI, AAVE, XRP, TRX with USDT quote.",
         )
         custom_symbols = st.text_input("Add custom comma-separated pairs", value="", placeholder="DOGEUSDT, LINKUSDT")
         if custom_symbols.strip():
@@ -57,7 +57,7 @@ def render_history_manager_tab() -> None:
     symbols = normalize_symbols(symbols)
     intervals = normalize_intervals(intervals)
 
-    st.subheader("Coverage")
+    st.subheader("Coverage + integrity")
     if st.button("Refresh coverage table", width="stretch"):
         st.cache_data.clear()
     try:
@@ -70,6 +70,10 @@ def render_history_manager_tab() -> None:
                 "interval",
                 "status",
                 "coverage_pct",
+                "continuity_ok",
+                "internal_gap_count",
+                "internal_missing_rows",
+                "unclosed_rows",
                 "rows_in_lookback",
                 "expected_rows_approx",
                 "missing_rows_approx",
@@ -83,15 +87,15 @@ def render_history_manager_tab() -> None:
             missing = int((coverage["status"] == "missing").sum()) if "status" in coverage.columns else 0
             m1, m2, m3 = st.columns(3)
             m1.metric("Ready", ready)
-            m2.metric("Partial", partial)
+            m2.metric("Partial / integrity issue", partial)
             m3.metric("Missing", missing)
     except Exception as exc:
         st.error(f"Could not read history coverage: {exc}")
 
     st.subheader("Backfill commands")
-    st.caption("Recommended route for first 12-month load: run in a terminal so it can continue even if the Streamlit page refreshes.")
+    st.caption("Recommended first load: run in a terminal so it can continue even if the Streamlit page refreshes. Gap repair is enabled by default.")
     st.code(build_backfill_command(symbols, intervals, lookback=lookback, update_only=False, request_analysis=False), language="powershell")
-    st.caption("Daily/regular refresh after the first load:")
+    st.caption("Regular refresh overlaps the latest two stored candles before appending new closed candles:")
     st.code(build_backfill_command(symbols, intervals, lookback=lookback, update_only=True, request_analysis=True), language="powershell")
 
     with st.expander("Run selected backfill inside Streamlit (blocking)"):
@@ -121,6 +125,8 @@ def render_history_manager_tab() -> None:
             result_df = pd.DataFrame(rows)
             st.success("Backfill run finished")
             st.dataframe(_display_time_columns(result_df), width="stretch", hide_index=True)
+            if "integrity_status" in result_df.columns and (result_df["integrity_status"] != "ready").any():
+                st.warning("At least one target still has an integrity issue. Review gaps_remaining / missing_rows_remaining before research.")
             if request_analysis:
                 st.info("Analyzer request is not started from this Streamlit page yet. Use the CLI with --request-analysis or start analyzer from the main app sidebar.")
 
@@ -136,7 +142,7 @@ def render_history_manager_tab() -> None:
             if gaps.empty:
                 st.success("No large open_time gaps found in the selected lookback window.")
             else:
-                st.warning(f"Found {len(gaps)} gaps. Re-run update-only or targeted backfill for this pair/interval.")
+                st.warning(f"Found {len(gaps)} gaps. The V28.19 backfill will try to repair these automatically; unresolved gaps remain visible in its report.")
                 st.dataframe(_display_time_columns(gaps), width="stretch", hide_index=True)
         except Exception as exc:
             st.error(f"Gap audit failed: {exc}")
@@ -144,5 +150,6 @@ def render_history_manager_tab() -> None:
     with st.expander("What data is this?"):
         st.write(
             "This manager covers OHLCV candles only: open, high, low, close, volume, open_time, close_time. "
+            "V28.19 excludes the currently forming candle and audits internal continuity. "
             "It does not yet backfill funding history, open-interest history, liquidation data, or order-book snapshots."
         )

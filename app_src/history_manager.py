@@ -8,7 +8,7 @@ from typing import Any
 
 import pandas as pd
 
-from .historical_backfill import interval_to_milliseconds, parse_lookback, summarize_store
+from .historical_backfill import audit_store_integrity, interval_to_milliseconds, parse_lookback, summarize_store
 from .ohlcv_store import load_range
 from .settings import OHLCV_STORE_ROOT
 
@@ -113,7 +113,7 @@ def summarize_history_coverage(
     store_root: str | Path | None = None,
     now: datetime | None = None,
 ) -> pd.DataFrame:
-    """Return one coverage row per symbol/interval from the local parquet OHLCV store."""
+    """Return one coverage/integrity row per symbol/interval from the local OHLCV store."""
     root = Path(store_root or OHLCV_STORE_ROOT)
     now_dt = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     desired_start = target_start_for_lookback(lookback, now=now_dt)
@@ -137,6 +137,20 @@ def summarize_history_coverage(
             freshness_minutes = None
             if last_ts is not None:
                 freshness_minutes = round((now_dt - last_ts.to_pydatetime()).total_seconds() / 60.0, 1)
+            try:
+                integrity = audit_store_integrity(
+                    symbol,
+                    interval,
+                    start=desired_start,
+                    end=now_dt,
+                    store_root=root,
+                    now=now_dt,
+                )
+            except Exception:
+                integrity = {"gap_count": 0, "missing_rows": 0, "unclosed_rows": 0, "continuity_ok": False}
+            coverage_ready = coverage_pct >= 95 and (freshness_minutes is not None and freshness_minutes <= max(180, interval_ms / 60_000 * 3))
+            continuity_ready = bool(integrity.get("continuity_ok", False))
+            status = "ready" if coverage_ready and continuity_ready else ("missing" if rows_in_window == 0 else "partial")
             rows.append(
                 {
                     "symbol": symbol,
@@ -150,8 +164,12 @@ def summarize_history_coverage(
                     "first_open_time": first_ts.isoformat() if first_ts is not None else None,
                     "last_open_time": last_ts.isoformat() if last_ts is not None else None,
                     "freshness_minutes": freshness_minutes,
+                    "internal_gap_count": int(integrity.get("gap_count") or 0),
+                    "internal_missing_rows": int(integrity.get("missing_rows") or 0),
+                    "unclosed_rows": int(integrity.get("unclosed_rows") or 0),
+                    "continuity_ok": continuity_ready,
                     "store_root": str(root),
-                    "status": "ready" if coverage_pct >= 95 and (freshness_minutes is not None and freshness_minutes <= max(180, interval_ms / 60_000 * 3)) else ("missing" if rows_in_window == 0 else "partial"),
+                    "status": status,
                 }
             )
     return pd.DataFrame(rows)
@@ -204,7 +222,7 @@ def build_backfill_command(
     interval_text = ",".join(normalize_intervals(intervals))
     cmd = f"{py} backfill_default_history.py --symbols {symbol_text} --intervals {interval_text} --lookback {lookback}"
     if update_only:
-        cmd += " --update-only"
+        cmd += " --update-only --overlap-bars 2"
     if request_analysis:
         cmd += " --request-analysis"
     return cmd

@@ -8,7 +8,13 @@ from typing import Any
 
 import pandas as pd
 
-from app_src.historical_backfill import backfill_symbol_history
+from app_src.historical_backfill import (
+    DEFAULT_MAX_GAP_REPAIRS,
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_RETRY_BACKOFF_SECONDS,
+    DEFAULT_UPDATE_OVERLAP_BARS,
+    backfill_symbol_history,
+)
 from app_src.history_manager import (
     DEFAULT_HISTORY_INTERVALS,
     DEFAULT_HISTORY_LOOKBACK,
@@ -32,14 +38,19 @@ def _write_analysis_request(symbols: list[str], intervals: list[str], reason: st
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Backfill the default V28.7 history target set into data/ohlcv_store.")
+    parser = argparse.ArgumentParser(description="Backfill and integrity-check the default historical OHLCV target set.")
     parser.add_argument("--config", default="config/history_backfill_targets.json", help="JSON config path with symbols, intervals and lookback.")
     parser.add_argument("--symbols", default=None, help="Override comma-separated symbols, e.g. BTCUSDT,ETHUSDT")
     parser.add_argument("--intervals", default=None, help="Override comma-separated intervals, e.g. 1h,4h")
     parser.add_argument("--lookback", default=None, help="Override lookback, e.g. 30d, 12mo, 1y, 5y")
-    parser.add_argument("--update-only", action="store_true", help="Start from the latest stored candle + one interval when data already exists.")
+    parser.add_argument("--update-only", action="store_true", help="Refresh only the recent tail, overlapping the latest stored candles for safety.")
+    parser.add_argument("--overlap-bars", type=int, default=DEFAULT_UPDATE_OVERLAP_BARS, help="Stored candles to refetch in update-only mode (default: 2).")
+    parser.add_argument("--max-retries", type=int, default=DEFAULT_MAX_RETRIES, help="Retry count for transient Binance/API failures.")
+    parser.add_argument("--retry-backoff-seconds", type=float, default=DEFAULT_RETRY_BACKOFF_SECONDS, help="Base exponential retry delay.")
+    parser.add_argument("--no-repair-gaps", action="store_true", help="Audit gaps but do not attempt automatic repairs.")
+    parser.add_argument("--max-gap-repairs", type=int, default=DEFAULT_MAX_GAP_REPAIRS, help="Maximum internal gaps repaired per symbol/interval.")
     parser.add_argument("--request-analysis", action="store_true", help="Write an analyzer request file after successful completion.")
-    parser.add_argument("--max-pages", type=int, default=None, help="Safety cap per symbol/interval; omit for full requested window.")
+    parser.add_argument("--max-pages", type=int, default=None, help="Safety cap per download window; omit for full requested window.")
     parser.add_argument("--sleep-seconds", type=float, default=0.15, help="Delay between Binance kline requests.")
     parser.add_argument("--dry-run", action="store_true", help="Print planned work without fetching candles.")
     args = parser.parse_args()
@@ -54,6 +65,11 @@ def main() -> int:
         "intervals": intervals,
         "lookback": lookback,
         "update_only": bool(args.update_only),
+        "overlap_bars": max(0, int(args.overlap_bars)),
+        "max_retries": max(0, int(args.max_retries)),
+        "retry_backoff_seconds": max(0.0, float(args.retry_backoff_seconds)),
+        "repair_gaps": not bool(args.no_repair_gaps),
+        "max_gap_repairs": max(0, int(args.max_gap_repairs)),
         "max_pages": args.max_pages,
         "sleep_seconds": args.sleep_seconds,
     }
@@ -70,6 +86,11 @@ def main() -> int:
                 interval,
                 lookback=lookback,
                 update_only=bool(args.update_only),
+                update_overlap_bars=max(0, int(args.overlap_bars)),
+                max_retries=max(0, int(args.max_retries)),
+                retry_backoff_seconds=max(0.0, float(args.retry_backoff_seconds)),
+                repair_gaps=not bool(args.no_repair_gaps),
+                max_gap_repairs=max(0, int(args.max_gap_repairs)),
                 sleep_seconds=float(args.sleep_seconds),
                 max_pages=args.max_pages,
             )
@@ -84,12 +105,29 @@ def main() -> int:
     print(f"Wrote report: {report_path}")
 
     if args.request_analysis:
-        _write_analysis_request(symbols, intervals, "v28_7_default_history_backfill")
+        _write_analysis_request(symbols, intervals, "v28_19_history_integrity_backfill")
         print(f"Requested analyzer refresh via {ANALYSIS_REQUEST_PATH}")
 
     summary = pd.DataFrame(results)
     if not summary.empty:
-        print(summary[["symbol", "interval", "pages", "fetched_rows", "written_partitions", "stopped_reason"]].to_string(index=False))
+        columns = [
+            "symbol",
+            "interval",
+            "fetched_rows",
+            "discarded_unclosed_rows",
+            "pruned_unclosed_rows",
+            "retries_used",
+            "gaps_before",
+            "gaps_repaired",
+            "gaps_remaining",
+            "missing_rows_remaining",
+            "integrity_status",
+            "stopped_reason",
+        ]
+        print(summary[[c for c in columns if c in summary.columns]].to_string(index=False))
+        not_ready = summary[summary.get("integrity_status", "") != "ready"] if "integrity_status" in summary.columns else pd.DataFrame()
+        if not not_ready.empty:
+            print("WARNING: Some history targets still have integrity issues; review the JSON report before research runs.")
     return 0
 
 

@@ -141,6 +141,42 @@ def append_candles(candles: list[dict[str, Any]], store_root: str | Path | None 
     return written
 
 
+def prune_unclosed_candles(
+    symbol: str,
+    timeframe: str,
+    *,
+    cutoff: Any = None,
+    store_root: str | Path | None = None,
+) -> int:
+    """Remove stored candles that are explicitly unfinished or close after the cutoff.
+
+    This repairs historical stores produced by older collectors that marked the
+    currently forming candle as closed.  Only affected parquet partitions are
+    rewritten.  The function returns the number of removed rows.
+    """
+    cutoff_ts = pd.to_datetime(cutoff, utc=True, errors="coerce") if cutoff is not None else pd.Timestamp.now(tz="UTC")
+    if pd.isna(cutoff_ts):
+        cutoff_ts = pd.Timestamp.now(tz="UTC")
+    removed = 0
+    for path in _partition_files(symbol.upper(), timeframe, store_root=store_root):
+        try:
+            frame = standardize_ohlcv(pd.read_parquet(path))
+        except Exception:
+            continue
+        close_times = pd.to_datetime(frame["close_time"], utc=True, errors="coerce")
+        keep = frame["is_closed"].fillna(False).astype(bool) & (close_times.isna() | (close_times <= cutoff_ts))
+        dropped = int((~keep).sum())
+        if dropped <= 0:
+            continue
+        removed += dropped
+        cleaned = frame.loc[keep, COLUMNS].reset_index(drop=True)
+        if cleaned.empty:
+            path.unlink(missing_ok=True)
+        else:
+            cleaned.to_parquet(path, index=False)
+    return removed
+
+
 def load_recent_candles(symbol: str, timeframe: str, limit: int = 400, store_root: str | Path | None = None) -> pd.DataFrame:
     symbol = symbol.upper()
     files = _partition_files(symbol, timeframe, store_root=store_root)
