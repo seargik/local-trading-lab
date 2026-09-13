@@ -1,96 +1,18 @@
 # Local Trading Lab — Project Recap and Direction
 
-_Last updated for V28.16._
+_Last updated for V28.19._
 
 ## Source of truth
 
-GitHub is the canonical project memory and code history. ChatGPT conversations are useful for reasoning and iteration, but project state should be stored in versioned repository files.
-
-Repository:
+GitHub is the canonical project memory and code history.
 
 ```text
 seargik/local-trading-lab
 ```
 
-## Current status
+Runtime market data is deliberately separate from Git and belongs on the machine that runs the app: local PC, Codespaces for temporary testing, or a future persistent VPS.
 
-- **V28.4**: repo-ready baseline, GitHub workflow, Codespaces/devcontainer, trend lifecycle scaffold.
-- **V28.5**: demo mode, synthetic sample data, lifecycle-to-strategy fit labels, remote testing docs.
-- **V28.6**: historical OHLCV backfill engine and incremental update CLI.
-- **V28.7**: Data / History Manager, default 12-month history target set, recap and decision log.
-- **V28.8**: Lifecycle Gate Backtest Lab for trade-level counterfactual validation before any execution gating.
-- **V28.9**: Research Command Center with Market State and a narrow three-family batch research runner.
-- **V28.10**: Runtime Cycle for history refresh, coverage/gap checks, safe analysis, Market State snapshots, and guarded research preparation.
-- **V28.11**: explicit Strategy Family Registry and research-readiness audit.
-- **V28.12**: OHLCV-only Compression Breakout Benchmark so all three core families can be replayed on the same historical data source.
-- **V28.13**: Evidence Review / Research Scorecard that converts completed research batches into conservative reject/retain/cross-validation decisions.
-- **V28.14**: frozen-payload walk-forward validation with anchored chronological holdouts, symbol stability, LONG/SHORT diagnostics and pair-transfer checks.
-- **V28.15**: tamper-evident research freeze plus a fixed future-data holdout that starts only after the freeze cutoff.
-- **V28.16**: first-class Market State Identifier plus an explainable Adaptive Router that maps changing market state to preferred strategy family, direction, entry/exit behavior and research risk multiplier.
-
-## Current architecture
-
-```text
-GitHub
-  -> code, docs, smoke tests, PR review
-
-Runtime host: local PC / Codespaces / future VPS
-  -> Streamlit UI
-  -> runtime cycle orchestration
-  -> collector/analyzer/backtest workers
-  -> data/ohlcv_store monthly parquet partitions
-
-Binance historical / fresh klines
-  -> backfill/update-only
-  -> local OHLCV store
-  -> analysis and backtests
-
-Market State Identifier
-  -> lifecycle state
-  -> direction
-  -> trend strength
-  -> volatility
-  -> structure
-  -> HTF alignment
-  -> explainable confidence
-
-Adaptive Router
-  -> preferred strategy family
-  -> route direction
-  -> TRADE / PREPARE / WAIT / PROTECT behavior
-  -> entry / exit family
-  -> research risk multiplier
-
-Strategy Family Registry
-  -> explicit research family
-  -> historical data requirements
-  -> benchmark-only controls where needed
-
-Validation
-  -> V28.13 Evidence Review
-  -> V28.14 frozen walk-forward stability
-  -> V28.15 freeze exact adaptive candidate/policy
-  -> genuinely future fixed holdout
-  -> paper validation only after a pass
-```
-
-## Data policy
-
-Historical market data is runtime data, not source code. Generated parquet history stays under `data/ohlcv_store` and is ignored by Git.
-
-Default requested history universe:
-
-```text
-BTCUSDT, ETHUSDT, SOLUSDT, LTCUSDT, BNBUSDT, UNIUSDT, AAVEUSDT, XRPUSDT, TRXUSDT
-```
-
-Default history target:
-
-```text
-12 months, 1h and 4h
-```
-
-## Product direction
+## Product definition
 
 TRAI is currently best described as:
 
@@ -98,58 +20,160 @@ TRAI is currently best described as:
 A local crypto market-state and strategy-validation lab.
 ```
 
-The intended behavior is adaptive rather than one-strategy-fits-all:
+It is not yet a production autonomous trading bot.
+
+The target behavior is adaptive:
 
 ```text
-market data
+trustworthy market data
 -> Market State Identifier
 -> Adaptive Router
 -> strategy family / direction / entry / exit / risk / WAIT
 -> evidence and validation
 ```
 
-The system should be allowed to change behavior when the market changes, while the **rules that define market state and adaptation remain fixed and auditable during validation**.
+The market response may change from bar to bar, but the rules that define state, routing and validation must remain explicit and auditable.
 
-## Simplified product shape
+## Version status
 
-1. **Data / History** — coverage, freshness, gap audit, backfill, update-only refresh.
-2. **Market State** — current trend/lifecycle, direction, trend strength, volatility, structure, HTF alignment and confidence.
-3. **Adaptive Router** — map current state to preferred strategy family, route direction, entry/exit behavior and research risk.
-4. **Strategy Evidence** — explicit family registry, narrow research batches, friction-aware backtests and lifecycle studies.
-5. **Evidence Review** — conservative scorecard that rejects weak evidence early instead of encouraging endless tuning.
-6. **Walk-Forward Validation** — frozen chronological stability and pair-transfer tests for survivors.
-7. **Fresh Holdout** — tamper-evident freeze and a fixed future-data validation window that did not exist at candidate-selection time.
-8. **Runtime Cycle** — one safe operation that keeps data and market-state research fresh.
+- **V28.4** — repo-ready GitHub baseline, Codespaces/devcontainer and lifecycle scaffold.
+- **V28.5** — demo mode and lifecycle-to-strategy fit labels.
+- **V28.6** — historical Binance USD-M OHLCV backfill and incremental refresh.
+- **V28.7** — Data / History Manager and default 12-month history target.
+- **V28.8** — Lifecycle Gate Backtest Lab for trade-level counterfactual research.
+- **V28.9** — Research Command Center and narrow three-family research protocol.
+- **V28.10** — Runtime Cycle for data refresh, analysis and Market State snapshots.
+- **V28.11** — explicit Strategy Family Registry and historical-readiness audit.
+- **V28.12** — OHLCV-only Compression Breakout Benchmark to complete the three-family historical protocol.
+- **V28.13** — Evidence Review / Research Scorecard with conservative reject/retain gates.
+- **V28.14** — frozen-payload chronological walk-forward and pair-transfer validation.
+- **V28.15** — tamper-evident research freeze and fixed genuinely future holdout protocol.
+- **V28.16** — first-class Market State Identifier and explainable Adaptive Router.
+- **V28.17** — closed-bar Historical Market State Replay and state/adaptation diagnostics.
+- **V28.18** — Closed-Bar Timing Integrity for the historical backtester: closed HTF availability, no backward fill and causal pivots.
+- **V28.19** — Historical Data Integrity: unfinished-candle filtering, recent-candle overlap, retry/backoff, continuity audit and targeted internal-gap repair.
 
-## Core research protocol
-
-Research remains deliberately narrow:
-
-```text
-trend_pullback
-compression_breakout
-range_reversion
-```
-
-Default first-pass symbols:
+## Current architecture
 
 ```text
-BTCUSDT, ETHUSDT, SOLUSDT
+GitHub
+  -> code
+  -> docs
+  -> smoke tests
+  -> PR / version history
+
+Runtime host
+  -> Streamlit
+  -> Runtime Cycle
+  -> collectors / analyzer / backtest workers
+  -> local parquet OHLCV history
+
+Binance USD-M klines
+  -> V28.19 integrity-safe backfill/update
+  -> data/ohlcv_store
+  -> V28.18 closed-bar feature clock
+  -> Market State Identifier
+  -> Adaptive Router
+  -> research / validation
 ```
 
-Default research timeframes:
+## Historical data policy
+
+Generated history is runtime data and remains ignored by Git:
 
 ```text
-entry: 1h
-analysis: 4h
-lookback: 365 days
+data/ohlcv_store/
+data/backfill_reports/
 ```
 
-Default execution assumptions use the `binance_usdm_taker_light` friction preset rather than zero-cost research.
+Default universe:
 
-## V28.16 Market State + Adaptive Router
+```text
+BTCUSDT
+ETHUSDT
+SOLUSDT
+LTCUSDT
+BNBUSDT
+UNIUSDT
+AAVEUSDT
+XRPUSDT
+TRXUSDT
+```
 
-V28.16 formalizes current market state as a first-class object. Per analyzed pair it exposes:
+Default target:
+
+```text
+12 months
+1h + 4h
+```
+
+The current historical store contains OHLCV only. Funding, open interest, liquidations and order-book history are separate datasets and must not be silently assumed to exist.
+
+## V28.19 historical integrity contract
+
+Historical research should now use the following ingestion contract:
+
+```text
+only fully closed candles
++ prune previously stored unfinished tail rows
++ overlap latest 2 candles on update-only refresh
++ retry transient Binance/network failures
++ audit internal timestamp continuity
++ repair internal gaps when possible
++ report unresolved gaps explicitly
+```
+
+A V28.19 result exposes:
+
+```text
+discarded_unclosed_rows
+pruned_unclosed_rows
+retries_used
+overlap_bars
+gaps_before
+missing_rows_before
+repair_attempts
+gaps_repaired
+gaps_remaining
+missing_rows_remaining
+integrity_status
+```
+
+`integrity_status = ready` means the observed stored range has no internal continuity gap and no unfinished row. It does not replace the existing coverage/freshness requirement.
+
+Recommended regular refresh:
+
+```powershell
+.\.venv\Scripts\python.exe backfill_default_history.py --lookback 12mo --update-only --overlap-bars 2 --request-analysis
+```
+
+## V28.18 historical timing contract
+
+A candle is not available to historical strategy logic when it opens. It becomes usable only after it closes.
+
+```text
+candle open
+-> candle develops
+-> candle close
+-> features become available
+-> strategy/state decision
+-> later entry
+```
+
+V28.18 also removes historical backward fill and replaces centered swing pivots with causally confirmed pivots.
+
+New backtests carry:
+
+```text
+timing_integrity_version = 28.18
+closed_bar_only = true
+```
+
+Pre-V28.18 backtests are legacy evidence and should be rerun before any new promotion decision.
+
+## Market State Identifier
+
+V28.16 exposes, per analyzed pair:
 
 ```text
 lifecycle state
@@ -168,134 +192,216 @@ exit family
 reasons
 ```
 
-The default adaptive research policy is versioned in:
+The default policy is versioned in:
 
 ```text
 config/market_state_router_policy.json
 ```
 
-Examples:
+Typical routing hypotheses:
 
 ```text
-compression_building -> prepare compression_breakout, no trade yet
-breakout_attempt      -> compression_breakout candidate if direction/confidence are clear
+compression_building -> prepare compression_breakout
+breakout_attempt      -> compression_breakout candidate when confirmed
 trend_entering        -> prepare trend_pullback
 trend_pullback_entry  -> trend_pullback candidate
-trend_running         -> wait for next pullback instead of chasing
-range_chop            -> range_reversion only at the range edge
+trend_running         -> wait for pullback rather than chase
+range_chop            -> range_reversion only near a range edge
 trend_extended_late   -> protect / wait
-trend_exhaustion      -> wait for reversal confirmation
-panic_volatility      -> wait
+trend_exhaustion      -> avoid continuation, wait for confirmation
+panic_volatility      -> WAIT / reduced exposure hypothesis
 ```
 
-The confidence/risk mapping is transparent and versioned. It is not a learned black-box probability. Risk remains zero unless the router has an actual trade candidate.
+The confidence and risk mappings are hypotheses to validate, not universal probabilities.
 
-V28.16 is still a **research/display layer**. It does not yet gate paper/live execution.
+## V28.17 Historical Market State Replay
 
-## V28.12 compression control
+V28.17 replays the state identifier through historical closed bars and asks whether the state model is coherent before using it as an execution gate.
 
-The richer compression strategies currently depend on historical open interest and/or order-book data, which the long-history store does not contain.
-
-V28.12 therefore adds `OHLCV Compression Breakout Benchmark` as a `benchmark_only` research control. It is not automatically placed in live or paper strategy slots.
-
-## V28.13 evidence policy
-
-Evidence Review thresholds are stored in `config/research_evidence_policy.json` and focus on sample size, positive net expectancy after friction, profit factor, drawdown, pair stability, month stability and friction drag.
-
-Benchmark-only strategies can provide promising concept evidence, but V28.13 blocks them from direct production-oriented cross-validation candidate status.
-
-## V28.14 walk-forward policy
-
-Walk-forward thresholds are versioned in `config/walk_forward_policy.json`.
-
-For an approximately 12-month source run the default fold design is:
+It measures:
 
 ```text
-train months 1-6  -> test months 7-8
-train months 1-8  -> test months 9-10
-train months 1-10 -> test months 11-12
+state distribution
+state transitions
+state dwell time / churn
+confidence calibration
+preferred family/action distribution
+later 4h / 12h / 24h directional agreement
+no-lookahead audit
 ```
 
-The complete strategy payload is hashed and must remain unchanged across validation folds. V28.14 changes only chronological test windows and metadata; it does not retune parameters between folds.
+Directional agreement is diagnostic only. It is not equivalent to trading profitability.
 
-V28.14 is a strong temporal-stability test but not a pristine untouched future holdout because V28.13 selected the candidate after seeing the same 12-month research set.
+## Core research protocol
 
-## V28.15 fresh holdout policy
+Research remains deliberately narrow:
 
-V28.15 freezes exact research state and waits for future data that did not exist at freeze time. The first eligible holdout date is the next UTC date after the freeze cutoff.
+```text
+trend_pullback
+compression_breakout
+range_reversion
+```
 
-Default policy in `config/fresh_holdout_policy.json` uses a fixed 60-day holdout. A 30-day observation milestone is reported, but preliminary evaluation is disabled by default. The endpoint is fixed at freeze time to avoid repeated peeking or cherry-picking.
+First-pass research symbols:
 
-For the adaptive system, a future freeze must eventually include not only individual strategy payloads but also the exact **market-state and routing policy versions** used to select behavior.
+```text
+BTCUSDT
+ETHUSDT
+SOLUSDT
+```
 
-## V28.10 operating model
+Default protocol:
 
-Default runtime sequence:
+```text
+entry timeframe:    1h
+analysis timeframe: 4h
+lookback:            365 days
+friction:            binance_usdm_taker_light
+allow long + short
+one trade at a time
+```
+
+## Strategy Family Registry
+
+Research assignment is explicit rather than inferred only from names.
+
+Registry metadata records:
+
+```text
+research family
+research inclusion
+historical data requirements
+historical readiness
+priority
+benchmark-only status where relevant
+```
+
+The richer compression/order-flow strategies that require historical open interest or order-book data remain blocked from OHLCV-only long-history claims.
+
+V28.12 therefore provides a deliberately simple `OHLCV Compression Breakout Benchmark` as a research control. It is benchmark-only and not a production recommendation.
+
+## Evidence ladder
+
+### V28.13 Evidence Review
+
+Completed research batches are reduced to explicit evidence gates rather than judged by appearance or an LLM score.
+
+Verdicts:
+
+```text
+reject
+insufficient_evidence
+promising
+cross_validation_candidate
+```
+
+Policy is versioned in:
+
+```text
+config/research_evidence_policy.json
+```
+
+Main checks include sample size, net expectancy after friction, profit factor, pair/month stability, drawdown and friction drag.
+
+### V28.14 Walk-Forward Validation
+
+A surviving non-benchmark candidate uses the exact same hashed strategy payload through expanding chronological holdouts.
+
+Default shape for roughly one year:
+
+```text
+train months 1-6  -> test 7-8
+train months 1-8  -> test 9-10
+train months 1-10 -> test 11-12
+```
+
+This is a frozen temporal-stability test, not a pristine future holdout if candidate selection already used the same year.
+
+### V28.15 Fresh Holdout
+
+A strategy/policy is frozen before the future data exists. The future test begins on the next UTC date after the freeze cutoff and uses a fixed endpoint.
+
+Default:
+
+```text
+target_holdout_days = 60
+minimum_observation_days = 30
+allow_preliminary_queue = false
+```
+
+A failed holdout must not be repaired by tuning on the same failed future window. A redesign requires a new hash and a new future-data clock.
+
+For the final adaptive system, the freeze must include both strategy payloads and the exact Market State / Adaptive Router policies.
+
+## Runtime Cycle
+
+The safe operating sequence remains:
 
 ```text
 incremental history refresh
--> coverage summary
--> gap audit
--> safe inline analysis
--> timestamped Market State snapshot
+-> coverage + continuity checks
+-> safe analysis
+-> Market State snapshot
 -> runtime report
 ```
 
-Research preparation remains opt-in and guarded. Safe inline analysis keeps `auto_paper_mode = false` and `live_bundle_mode = false`.
+Inline analysis keeps paper/live automation disabled. Research preparation remains opt-in and guarded.
 
 ## What is experimental
 
-- V28.16 market-state confidence and risk multipliers are explicit hypotheses to validate, not universal truths.
-- Lifecycle/market-state routing is not yet a hard paper/live execution gate.
-- V28.8 is post-trade counterfactual filtering, not exact signal-path replay.
-- The OHLCV compression benchmark is a research control, not evidence of production alpha.
-- V28.13–V28.15 thresholds are versioned research policy, not universal market truths.
-- V28.14 same-history walk-forward is not equivalent to a never-seen future holdout.
-- A V28.15 fresh-holdout pass is stronger evidence but is still not live-trading permission.
-- Historical OHLCV contains candles only; funding, open interest, liquidations and order-book history are separate datasets.
-- Runtime scheduling is not yet persistent/24x7; V28.10 is an on-demand cycle.
+- Market-state confidence is an explainable score, not a calibrated universal probability yet.
+- Adaptive routing is still research/display behavior, not a hard live or paper gate.
+- V28.17 directional accuracy does not prove profitable execution.
+- The compression benchmark is a research control, not proven alpha.
+- Evidence/walk-forward/holdout thresholds are versioned research policy, not market laws.
+- Historical OHLCV integrity cannot substitute for unavailable OI/funding/order-book history.
+- Runtime scheduling is not yet a persistent 24/7 service.
 
 ## What should not be trusted yet
 
-- Universal score thresholds.
+- Pre-V28.18 backtest results for promotion decisions.
+- Any research run using incomplete or unresolved-gap history.
 - One-window backtest winners.
-- Market-state routes that only work on one pair or period.
-- Results before execution friction.
-- Strategy selection from too few trades.
-- Walk-forward results where the frozen payload/policy changed between folds.
-- A holdout whose strategy/config/router/window changed after its freeze.
-- Any live execution behavior that has not passed historical, adaptive-router, fresh-holdout and paper validation.
+- Universal score thresholds.
+- Market-state routes that only work on one pair or one short period.
+- Results before friction.
+- Candidates with too few trades.
+- Walk-forward results where the frozen payload changed.
+- Holdouts whose strategy/router/window changed after the freeze.
+- Live execution behavior that has not passed historical, future and paper validation.
 
-## Validation ladder
+## Current validation ladder
 
 ```text
-historical coverage
--> current Market State Identifier
--> adaptive-router historical replay
--> three-family baseline evidence
+V28.19 trustworthy OHLCV history
+-> V28.18 closed-bar timing
+-> V28.16 Market State Identifier
+-> V28.17 historical state replay
+-> controlled three-family baseline
 -> V28.13 Evidence Review
--> reject weak behavior early
+-> reject weak candidates
 -> V28.14 frozen walk-forward
--> freeze strategy + market-state/router policy
--> genuinely future fixed holdout
--> paper validation without retuning
--> live execution only later
+-> freeze complete adaptive framework
+-> V28.15 genuinely future holdout
+-> frozen paper validation
+-> constrained live execution only later
 ```
 
-## Immediate next step after real history is available
+## Immediate next research step once real history exists
 
-- Keep the Runtime Cycle refreshing history and current market-state analysis.
-- Use the new Market State page as the quick answer to what each pair is doing now.
-- Replay the V28.16 router historically before allowing it to become a paper/live gate.
-- Run the controlled three-family evidence batch on BTC/ETH/SOL.
-- Let V28.13 reject weak evidence.
-- Queue V28.14 only for genuine non-benchmark survivors.
-- Freeze the complete adaptive decision framework for future V28.15 holdout validation.
+1. Populate/refresh the actual local 12-month BTC/ETH/SOL 1h + 4h history with V28.19.
+2. Require coverage and continuity to be clean.
+3. Rerun research/backtests under the V28.18 timing contract.
+4. Run V28.17 Market State Replay and inspect state churn/confidence/directional diagnostics.
+5. Compare the adaptive router against controlled static family baselines only after the data/timing foundation is clean.
+6. Let V28.13 reject weak evidence before expensive validation.
+
+Do not claim the 12-month dataset exists on a runtime machine until that runtime has actually been checked.
 
 ## Later
 
-- Add frozen paper-validation only after the adaptive router survives historical, walk-forward and fresh-holdout evidence.
-- Add historical OI/funding only if evidence suggests the richer derivatives strategies are worth the extra data complexity.
-- Schedule the runtime cycle hourly/daily on the chosen runtime.
+- Frozen paper validation of the complete adaptive framework after future-holdout evidence.
+- Historical funding/OI only if evidence justifies the extra data complexity.
+- Persistent hourly/daily runtime scheduling on a chosen host.
 - Mobile-first dashboard refinement.
-- Optional VPS deployment when 24/7 monitoring is useful.
+- Optional VPS deployment for 24/7 monitoring.
