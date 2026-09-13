@@ -30,3 +30,4 @@ jobs:
           python smoke_test_v28_10_runtime_cycle.py
           python smoke_test_v28_11_strategy_family_registry.py
           python smoke_test_v28_12_ohlcv_compression_benchmark.py
+          python smoke_test_v28_13_evidence_review.py
