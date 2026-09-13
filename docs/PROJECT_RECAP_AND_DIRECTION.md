@@ -1,6 +1,6 @@
 # Local Trading Lab — Project Recap and Direction
 
-_Last updated for V28.21._
+_Last updated for V28.22._
 
 ## Source of truth
 
@@ -20,87 +20,97 @@ TRAI is currently best described as:
 A local crypto market-state, strategy-validation and portfolio-research lab.
 ```
 
-It is not a production autonomous trading bot.
+It is **not** yet a production autonomous trading bot.
 
-The target behavior is adaptive, but every adaptive rule must remain explicit, versioned and auditable:
+The target behavior is adaptive:
 
 ```text
 trustworthy market data
--> closed-bar features
 -> Market State Identifier
 -> Adaptive Router
--> static strategy-family evidence
--> adaptive economic evidence
--> shared-account portfolio replay
--> frozen chronological/future validation
--> only later paper/live execution
+-> strategy-family choice / direction / WAIT / risk
+-> shared-account capital allocation
+-> historical economic validation
+-> frozen chronological validation
+-> genuinely future validation
+-> paper validation
+-> constrained live execution only much later
 ```
+
+The market response may change every bar. The rules that decide how TRAI adapts must remain explicit, versioned, frozen during validation, and economically accountable.
 
 ## Version status
 
-- **V28.4** — repo-ready GitHub baseline, devcontainer and lifecycle scaffold.
+- **V28.4** — GitHub repo-ready baseline, lifecycle scaffold and smoke/remote-development support.
 - **V28.5** — demo mode and lifecycle-to-strategy fit labels.
-- **V28.6** — historical Binance USD-M OHLCV backfill and incremental refresh.
+- **V28.6** — historical Binance USD-M OHLCV backfill.
 - **V28.7** — Data / History Manager and default 12-month history target.
 - **V28.8** — Lifecycle Gate counterfactual research.
 - **V28.9** — Research Command Center and narrow three-family protocol.
-- **V28.10** — Runtime Cycle for data refresh, analysis and Market State snapshots.
+- **V28.10** — Runtime Cycle for safe refresh/analysis/state snapshots.
 - **V28.11** — explicit Strategy Family Registry and historical-readiness audit.
-- **V28.12** — OHLCV-only Compression Breakout Benchmark.
-- **V28.13** — Evidence Review / Research Scorecard with conservative gates.
-- **V28.14** — frozen-payload chronological walk-forward and pair-transfer validation.
-- **V28.15** — tamper-evident research freeze and genuinely future holdout protocol.
-- **V28.16** — first-class Market State Identifier and explainable Adaptive Router.
-- **V28.17** — closed-bar Historical Market State Replay.
-- **V28.18** — Closed-Bar Timing Integrity: closed HTF availability, no backward fill and causal pivots.
-- **V28.19** — Historical Data Integrity: unfinished-candle filtering, overlap refresh, retry/backoff, continuity audit and targeted gap repair.
-- **V28.20** — Adaptive Evidence & Economic Viability: static-vs-adaptive economics, WAIT value, friction stress, stability, concurrency critique, integrity gates and policy-hashed snapshots.
-- **V28.21** — Shared-Account Adaptive Portfolio Replay: one finite account, chronological capital allocation, risk/exposure caps, static-vs-adaptive account comparison, rejection ledger, account-level friction stress and reproducible portfolio snapshots.
+- **V28.12** — OHLCV-only Compression Breakout Benchmark, marked `benchmark_only`.
+- **V28.13** — Evidence Review / Research Scorecard with conservative reject/retain gates.
+- **V28.14** — frozen-payload chronological walk-forward for individual strategies.
+- **V28.15** — tamper-evident freeze and fixed genuinely future holdout protocol.
+- **V28.16** — first-class Market State Identifier + explainable Adaptive Router.
+- **V28.17** — closed-bar Historical Market State Replay and adaptation diagnostics.
+- **V28.18** — Closed-Bar Timing Integrity: closed HTF availability, causal pivots and no backward fill.
+- **V28.19** — Historical Data Integrity: unfinished-candle filtering, overlap refresh, retries and targeted gap repair.
+- **V28.20** — Adaptive Evidence & Economic Viability: static-vs-adaptive economics, WAIT value, friction stress and reproducible evidence hashes.
+- **V28.21** — Shared-Account Adaptive Portfolio Replay: one finite account, chronological capital allocation, exposure/risk limits and explicit candidate rejection.
+- **V28.22** — Frozen Adaptive Portfolio Walk-Forward: complete-framework freeze, chronological shared-account OOS folds, aggregate OOS equity, static-baseline rejection and tamper-evident validation snapshots.
 
 ## Current architecture
 
 ```text
 GitHub
-  -> code
+  -> source code
+  -> policies
   -> docs
   -> smoke tests
-  -> PR / version history
+  -> PR/version history
 
 Runtime host
   -> Streamlit
   -> Runtime Cycle
-  -> collectors / analyzer / backtest workers
-  -> local parquet OHLCV history
+  -> Binance OHLCV collector
+  -> local parquet history
+  -> analysis/backtest workers
+  -> research artifacts under data/backtest_reviews/
+```
 
+Research flow:
+
+```text
 Binance USD-M klines
-  -> V28.19 integrity-safe backfill/update
-  -> data/ohlcv_store
-  -> V28.18 closed-bar feature clock
-  -> static family backtests
+-> V28.19 integrity-safe history
+-> V28.18 closed-bar information clock
+-> static family backtests
 
-Closed historical data
-  -> V28.16 Market State Identifier + Adaptive Router
-  -> V28.17 historical state replay
+closed historical data
+-> V28.16 Market State + Router
+-> V28.17 historical state replay
 
-Static family trades + historical router states
-  -> V28.20 adaptive economic evidence
-  -> V28.21 one finite shared-account replay
-  -> reproducible policy-hashed snapshots
-  -> stronger validation only if evidence survives
+static family trades + router states
+-> V28.20 adaptive economic evidence
+-> V28.21 one finite shared account
+-> V28.22 exact-framework historical walk-forward
 ```
 
 ## Historical data policy
 
-Generated history and evidence artifacts are runtime data and remain ignored by Git:
+Generated runtime data is ignored by Git.
+
+Important locations:
 
 ```text
 data/ohlcv_store/
 data/backfill_reports/
-data/backtest_reviews/adaptive_evidence/
-data/backtest_reviews/shared_account_replays/
+data/backtest_reviews/
 ```
 
-Default research universe:
+Default history universe:
 
 ```text
 BTCUSDT
@@ -114,29 +124,29 @@ XRPUSDT
 TRXUSDT
 ```
 
-Default history target:
+Default target:
 
 ```text
 12 months
 1h + 4h
 ```
 
-The current historical store is OHLCV-only. Funding, open interest, liquidations and order-book history are separate datasets and must never be silently assumed to exist.
+The current long-history store is OHLCV. Funding, open interest, liquidations and order-book history are separate datasets and must never be silently assumed to exist.
 
-Do not claim that the 12-month runtime dataset exists until that runtime has actually been checked.
+**Do not claim the 12-month dataset is populated on a runtime machine until that runtime has actually been checked.**
 
 ## V28.19 historical integrity contract
 
-Historical research uses:
+Historical ingestion now requires:
 
 ```text
-only fully closed candles
-+ prune unfinished tail rows
-+ overlap recent candles on update-only refresh
+fully closed candles only
++ prune old unfinished tail rows
++ overlap latest 2 candles on update refresh
 + retry transient Binance/network failures
-+ audit internal timestamp continuity
-+ repair internal gaps when possible
-+ report unresolved gaps explicitly
++ continuity audit
++ targeted gap repair
++ unresolved-gap reporting
 ```
 
 Recommended regular refresh:
@@ -145,22 +155,24 @@ Recommended regular refresh:
 .\.venv\Scripts\python.exe backfill_default_history.py --lookback 12mo --update-only --overlap-bars 2 --request-analysis
 ```
 
-`integrity_status = ready` means the observed stored range has no internal continuity gap and no unfinished row. It does not replace coverage/freshness checks.
+A dataset is not `ready` merely because row count is approximately correct; coverage/freshness and internal continuity must both pass.
 
 ## V28.18 historical timing contract
 
-Historical strategy logic may use a candle only after that candle closes.
+Historical strategy/state logic may use a candle only after that candle closes.
 
 ```text
-candle open
+candle opens
 -> candle develops
--> candle close
+-> candle closes
 -> features become available
--> strategy/state decision
+-> decision
 -> later entry
 ```
 
-V28.18 also removes backward fill and centered swing pivots that required future bars.
+Higher-timeframe context follows the same rule.
+
+V28.18 also removes backward fill and replaces centered pivots with causally confirmed pivots.
 
 New backtests carry:
 
@@ -173,46 +185,40 @@ Pre-V28.18 results are legacy evidence and should not be used for new promotion 
 
 ## Market State Identifier and Adaptive Router
 
-V28.16 exposes:
+The current state object can expose:
 
 ```text
 lifecycle state
 direction
 trend strength
-volatility state
+volatility
 market structure
 HTF alignment
 confidence
 preferred strategy family
 router action
 route direction
-risk multiplier
+research risk multiplier
 entry mode
 exit family
 reasons
 ```
 
-Typical hypotheses include:
+Typical routing hypotheses:
 
 ```text
-compression_building -> prepare compression_breakout
-breakout_attempt      -> compression_breakout candidate
-trend_entering        -> prepare trend_pullback
-trend_pullback_entry  -> trend_pullback candidate
+compression_building -> prepare compression breakout
+breakout_attempt      -> compression breakout candidate when confirmed
+trend_entering        -> prepare trend pullback
+trend_pullback_entry  -> trend pullback candidate
 trend_running         -> wait for pullback rather than chase
-range_chop            -> range_reversion near an edge
+range_chop            -> range reversion only near range edge
 trend_extended_late   -> protect / wait
 trend_exhaustion      -> avoid continuation
-panic_volatility      -> WAIT / reduced exposure
+panic_volatility      -> WAIT / reduced exposure hypothesis
 ```
 
-These are research rules, not universal market truths.
-
-## V28.17 Historical Market State Replay
-
-V28.17 measures state distribution, transitions, dwell/churn, confidence calibration, preferred family/action distribution, later directional agreement and no-lookahead integrity.
-
-Directional agreement remains diagnostic. It is not trading profitability.
+The confidence/risk mappings are hypotheses to validate, not universal probabilities.
 
 ## Core research protocol
 
@@ -232,249 +238,258 @@ ETHUSDT
 SOLUSDT
 ```
 
-Default protocol:
+Default timeframes:
 
 ```text
-entry timeframe:    1h
-analysis timeframe: 4h
-lookback:            365 days
-friction:            binance_usdm_taker_light
-allow long + short
+entry:    1h
+analysis: 4h
 ```
 
-Strategy-family assignment is explicit in the Strategy Family Registry.
+The richer compression/order-flow candidates that require historical OI or order-book data remain blocked from OHLCV-only claims.
 
-The current OHLCV Compression Breakout strategy is intentionally `benchmark_only`. Richer compression/order-flow strategies that require historical OI or order-book data remain blocked from OHLCV-only long-history claims.
+`OHLCV Compression Breakout Benchmark` exists only as a reproducible research control and remains `benchmark_only`.
 
-## V28.20 Adaptive Evidence & Economic Viability
+## V28.20 — Adaptive economic evidence
 
-V28.20 asks whether the fixed adaptive policy selects better conditions than the same strategy families running statically.
+V28.20 asks:
 
-For each completed core-research batch it selects one representative run per family by registry priority, then causally joins the latest Market State/Router decision available before each strategy signal.
+> Does the fixed Market State + Router policy select economically better conditions than the same family strategies running statically?
 
 It measures:
 
 ```text
 profit factor
 expectancy per capital turn
+WAIT avoided loss vs missed profit
 pair/month stability
 family concentration
-WAIT value
-additional-friction survival
-capital overlap/concurrency
+extra-friction survival
+trade overlap / concurrency
 ```
 
-WAIT is treated as an economic decision: avoided losses and missed profits are reported separately.
-
-V28.20 is still a selector/weighting layer over independent strategy backtests. It is not one deployable account. That gap is what V28.21 addresses.
-
-## V28.21 Shared-Account Adaptive Portfolio Replay
-
-V28.21 puts the historical candidates through one finite account in chronological order.
-
-At each candidate entry time it:
+A result can become:
 
 ```text
-1. closes positions whose exits are already due
-2. realizes PnL into current account equity
-3. ranks same-time candidates without future PnL
-4. applies shared risk/exposure limits
-5. accepts or rejects candidates
-6. sizes accepted positions from current equity
+adaptive_edge_candidate
 ```
 
-Default account policy:
+only as permission for stronger validation.
+
+It is not a forecast of future profit.
+
+## V28.21 — Shared-account portfolio replay
+
+V28.21 removes the independent-capital illusion.
+
+Static and adaptive candidates must compete inside one finite account with the same:
 
 ```text
-starting equity:             $10,000
-base risk per trade:          0.50%
-max total open risk:          1.50%
-max position notional:       35.00%
-max symbol notional:         35.00%
-max gross exposure:         100.00%
-max same-direction exposure: 70.00%
-max concurrent positions:     3
-max positions per family:     2
-one position per symbol:       true
-```
-
-Static and adaptive scenarios face the same account constraints.
-
-### Static shared-account baseline
-
-Uses every trade with a causally available Market State observation. Same-time arbitration uses only strategy score and deterministic tie-breakers.
-
-### Adaptive shared account
-
-Uses only V28.20 router-matched candidates and scales desired risk using the fixed router risk multiplier. Same-time arbitration uses router confidence, router risk multiplier and strategy score — all known before entry.
-
-### Capital rejection ledger
-
-A candidate may be rejected because of:
-
-```text
+starting capital
+risk per trade
+total open-risk limit
+position-notional cap
+symbol-exposure cap
+gross-exposure cap
+same-direction exposure cap
 max concurrent positions
-same symbol already open
-family position cap
-gross exposure cap
-same-direction crypto exposure cap
-open-risk cap
-invalid timing/risk
+max positions per family
+friction model
 ```
 
-This prevents independent backtests from implicitly reusing the same capital.
-
-### Account-level outputs
-
-V28.21 reports:
+Default research account:
 
 ```text
-starting / ending equity
-net PnL and return
-accepted / rejected candidates
-profit factor
-realized-equity drawdown
-capital turnover
-max concurrent positions
-max gross exposure
-max open risk
-max same-direction exposure
-pair / family / month contributions
-static-vs-adaptive account uplift
+starting equity                 $10,000
+base risk / trade                  0.50%
+max total open risk                1.50%
+max position notional             35.00%
+max symbol notional               35.00%
+max gross exposure               100.00%
+max same-direction exposure       70.00%
+max concurrent positions               3
+max positions / family                 2
+one position / symbol                  yes
 ```
 
-### Account-level friction stress
+Candidate arbitration uses only information available before entry. Future PnL never decides which simultaneous candidate wins.
 
-The entire account is replayed again under additional round-trip friction:
-
-```text
-0, 5, 10, 20, 40 bps
-```
-
-Because costs change equity, each stress scenario also changes later compounded position sizes. It is therefore recomputed from the beginning rather than adjusted with a simple final subtraction.
-
-### Important limitation: realized drawdown
-
-The V28.21 equity curve realizes PnL at exits. It does not yet mark every open position to market candle by candle.
-
-Therefore portfolio drawdown can be understated relative to the worst intratrade account drawdown. Trade-level MAE is preserved as a diagnostic proxy, but separate MAEs cannot be summed safely because their worst moments may not coincide.
-
-### Correlation treatment
-
-BTC/ETH/SOL are not treated as independent. V28.21 caps aggregate same-direction exposure.
-
-This is intentionally simple. It is not yet a dynamic covariance/factor-risk model.
-
-### No leverage optimization
-
-The default maximum gross notional is 100% of equity. Leverage and liquidation are deliberately excluded until the edge survives stronger validation.
-
-Adding leverage before proving the edge would make the simulator more exciting, not more truthful.
-
-## V28.21 verdicts
+An explicit verdict exists for:
 
 ```text
-invalid_evidence
-no_portfolio_evidence
-reject
 static_baseline_better
-insufficient_evidence
-promising_research_only
+```
+
+If simpler logic makes more money under the same capital constraints, the adaptive layer has not earned its complexity.
+
+## V28.22 — Frozen adaptive portfolio walk-forward
+
+V28.22 freezes the **complete adaptive portfolio framework**, not merely a strategy name.
+
+The freeze covers:
+
+```text
+representative strategy payloads + hashes
+adaptive-evidence policy
+Market State / Router policy
+Market State Replay policy
+shared-account capital policy
+V28.22 validation policy
+core implementation-file hashes
+source V28.21 result signature
+```
+
+Integrity identifiers:
+
+```text
+framework_sha256
+record_sha256
+```
+
+Freeze eligibility requires the source V28.21 result to be:
+
+```text
 shared_account_edge_candidate
 ```
 
-`static_baseline_better` is deliberately first-class. If the shared account earns more by simply running static candidates, then the adaptive router has failed its economic purpose even if it looks sophisticated.
+and representative source strategy runs must use V28.18 timing integrity.
 
-`shared_account_edge_candidate` means only that the frozen account-aware historical hypothesis has earned stronger validation.
+### Default folds
 
-If any accepted adaptive trade is `benchmark_only`, production-oriented promotion remains blocked.
-
-Policy:
+For an approximately 12-month source period:
 
 ```text
-config/shared_account_policy.json
+months 1–6   diagnostic history -> test months 7–8
+months 1–8   diagnostic history -> test months 9–10
+months 1–10  diagnostic history -> test months 11–12
 ```
+
+The expanding historical section is diagnostic only. **No parameter, strategy, router threshold, risk multiplier, arbitration rule or capital rule is retuned between folds.**
+
+### Aggregate OOS account
+
+In addition to per-fold results, all non-overlapping test windows are replayed as one chronological shared account:
+
+```text
+capital carries across OOS windows
+positions can overlap across fold boundaries
+simultaneous candidates share finite capital
+later size depends on earlier realized equity
+```
+
+That aggregate equity curve is the stronger historical economic result.
+
+### Default V28.22 gates
+
+```text
+3 folds
+>= 67% fold-pass share
+>= 67% folds where adaptive return >= static return
+>= 30 aggregate accepted OOS trades
+aggregate adaptive return > 0
+aggregate adaptive PF >= 1.10
+aggregate realized drawdown <= 12%
+adaptive aggregate return >= static aggregate return
+positive symbol share >= 67%
+positive month share >= 50%
+survive +10 bps additional round-trip friction
+no accepted benchmark-only OOS trade
+```
+
+Verdicts:
+
+```text
+invalid_freeze_or_evidence
+insufficient_walk_forward
+fail
+static_baseline_better_oos
+mixed
+pass_for_future_freeze
+```
+
+`pass_for_future_freeze` is **not** permission to paper/live trade. It means the exact framework has earned the right to be frozen before genuinely future data exists.
 
 Detailed methodology:
 
 ```text
-docs/SHARED_ACCOUNT_REPLAY_V28_21.md
+docs/FROZEN_ADAPTIVE_PORTFOLIO_WALK_FORWARD_V28_22.md
 ```
 
-## Reproducible evidence
+## Reproducible runtime artifacts
 
-V28.20 snapshots live under:
+V28.20:
 
 ```text
 data/backtest_reviews/adaptive_evidence/
 ```
 
-V28.21 snapshots live under:
+V28.21:
 
 ```text
 data/backtest_reviews/shared_account_replays/
 ```
 
-V28.21 fingerprints:
+V28.22 freeze records:
 
 ```text
-shared-account policy
-adaptive-evidence policy
-market-state router policy
-market-state replay policy
+data/backtest_reviews/adaptive_portfolio_freezes/
 ```
 
-with canonical SHA-256 hashes.
-
-Future validation must be able to prove that the exact same adaptive and capital policies are being tested.
-
-## Existing evidence ladder
-
-### V28.13 Evidence Review
-
-Transparent static evidence gates for sample size, friction-aware results, PF, pair/month stability and drawdown.
-
-### V28.14 Walk-Forward Validation
-
-Frozen strategy payload through expanding chronological holdouts. This tests temporal stability, not a pristine future sample when the same historical year was already used for discovery.
-
-### V28.15 Fresh Holdout
-
-Freeze first, observe future data second. Endpoints are fixed before outcomes are known; a failed future window cannot be repaired by tuning against the same window.
-
-For the full adaptive portfolio, the future freeze must include:
+V28.22 validation snapshots:
 
 ```text
-strategy payloads
-market-state policy
-router policy
-adaptive-evidence policy
-shared-account capital/risk policy
-execution assumptions
+data/backtest_reviews/adaptive_portfolio_walk_forward/
 ```
 
-## What remains experimental
+These stay outside Git.
 
-- Market-state confidence is explainable but not a universal calibrated probability.
-- V28.17 directional agreement is not profitability.
-- V28.20 is not shared-capital execution.
-- V28.21 is capital-aware but still uses source trade paths from OHLCV backtests.
-- V28.21 realized drawdown can understate synchronized intratrade mark-to-market drawdown.
-- Correlation control is a same-direction cap, not a dynamic factor-risk model.
-- The compression benchmark is research control evidence, not production alpha.
-- Evidence thresholds are policy choices, not market laws.
-- Runtime scheduling is not yet a persistent 24/7 service.
+## Critical limitations that remain
+
+The project should continue to criticize itself aggressively.
+
+### Realized vs mark-to-market drawdown
+
+V28.21/V28.22 account drawdown is primarily realized-equity drawdown at exits.
+
+Concurrent BTC/ETH/SOL positions can be substantially underwater at the same time before any exit occurs. Synchronized mark-to-market portfolio drawdown remains a material missing risk view.
+
+### Correlation model
+
+Same-direction exposure caps are useful but crude.
+
+TRAI does not yet maintain rolling covariance/beta/factor-risk estimates or crisis-correlation stress scenarios.
+
+### Historical execution abstraction
+
+OHLCV backtests cannot reconstruct exact order-book queue position, latency or fill uncertainty.
+
+More microstructure data should be added only if the slower-timeframe edge survives the current validation ladder.
+
+### Historical selection contamination
+
+V28.22 reuses a period already involved in research/candidate selection.
+
+That is why `pass_for_future_freeze` explicitly leads to a new future-data clock rather than to deployment.
+
+### Benchmark-only compression
+
+A benchmark-only compression trade accepted in OOS validation blocks production-oriented promotion.
+
+### No leverage optimization
+
+This is intentional. The project should first prove a conservative unlevered/low-exposure edge before adding leverage/liquidation complexity.
 
 ## What should not be trusted yet
 
-- Pre-V28.18 backtest results for promotion.
-- Research using incomplete or unresolved-gap history.
-- One-window winners.
-- Results before friction.
-- Portfolio results that ignore rejected candidates or capital constraints.
-- V28.21 drawdown as a full intratrade mark-to-market risk estimate.
-- Walk-forward/future tests where frozen policies changed.
-- Live behavior that has not passed historical, future and paper validation.
+- pre-V28.18 historical results for promotion;
+- incomplete or gap-ridden OHLCV history;
+- one-window winners;
+- universal Market State confidence thresholds;
+- pooled independent-strategy PnL as a deployable account result;
+- V28.20 counterfactual results without V28.21 capital constraints;
+- a V28.21 winner that fails V28.22 chronological stability;
+- a V28.22 pass as if it were pristine future evidence;
+- any strategy/router/framework changed after its validation freeze;
+- any live-execution assumption not tested prospectively.
 
 ## Current validation ladder
 
@@ -485,37 +500,39 @@ V28.19 trustworthy OHLCV history
 -> V28.17 historical state replay
 -> controlled static family baselines
 -> V28.20 adaptive economic evidence
--> V28.21 shared-account portfolio replay
--> freeze the complete adaptive + capital policy
--> walk-forward the complete frozen portfolio
--> genuinely future holdout
--> frozen shared-account paper validation
+-> V28.21 one finite shared account
+-> V28.22 frozen adaptive portfolio walk-forward
+-> new complete-framework freeze BEFORE future data
+-> genuinely future adaptive portfolio holdout
+-> frozen account-aware paper validation
 -> constrained live execution only later
 ```
 
-## Immediate next research step once real history exists
+## Immediate runtime work once real history exists
 
 1. Populate/refresh actual local 12-month BTC/ETH/SOL 1h + 4h history with V28.19.
 2. Require coverage and continuity to be clean.
-3. Rerun selected family backtests under V28.18 timing integrity.
-4. Run V28.17 Market State Replay.
-5. Run V28.20 and reject the adaptive idea if it does not improve economic evidence after friction.
-6. Run V28.21 and reject the architecture if the one-account adaptive replay cannot beat the same capital policy running static candidates.
-7. Only if V28.21 survives, freeze the **whole** system and validate it chronologically and on genuinely future data.
+3. Rerun representative family backtests under V28.18 timing integrity.
+4. Inspect V28.17 Market State churn, confidence and directional diagnostics.
+5. Run V28.20 and reject adaptation if it does not improve exposure-normalized economics after friction.
+6. Run V28.21 and reject adaptation if a simpler static shared account is stronger.
+7. Only a V28.21 `shared_account_edge_candidate` can be frozen for V28.22.
+8. Run the same complete framework across V28.22 chronological OOS folds.
+9. Only `pass_for_future_freeze` should start the next genuinely future validation protocol.
 
-## Direction for larger development steps
+## Development direction
 
-Future releases should remain broader end-to-end increments, but complexity must earn its place through evidence.
+Future releases should continue as larger end-to-end steps, but complexity must earn its place economically.
 
-Priority:
+Priority remains:
 
 ```text
 better economic truth
-> better robustness / future validation
-> better account-risk realism
+> stronger falsification
+> more realistic risk
 > more indicators
 > more strategies
 > prettier signal output
 ```
 
-The next major version should therefore validate the **complete frozen adaptive portfolio**, not add another collection of strategies. A strong V28.21 result should lead to portfolio-level walk-forward/future validation; a weak result should lead to rejection or simplification, not repeated tuning until the backtest looks good.
+The highest-value next step after a real V28.22 pass is **not another strategy**. It is a genuinely future adaptive-portfolio freeze/holdout using the exact same framework hash, followed by account-aware paper validation if that unseen test survives.
