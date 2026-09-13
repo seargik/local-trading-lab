@@ -39,3 +39,4 @@ jobs:
           python smoke_test_v28_19_history_integrity.py
           python smoke_test_v28_20_adaptive_evidence.py
           python smoke_test_v28_21_shared_account.py
+          python smoke_test_v28_22_adaptive_portfolio_walk_forward.py
