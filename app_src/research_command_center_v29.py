@@ -11,6 +11,7 @@ from .backtest_jobs import create_batch_job, list_jobs
 from .history_manager import summarize_history_coverage
 from .settings import LAB_DB_PATH, OHLCV_STORE_ROOT
 from .storage import Storage
+from .strategy_family_registry_v2811 import compiled_registry, load_registry_strategy_payload, resolve_entry
 from .trend_lifecycle import classify_analysis_map, infer_strategy_family
 
 CORE_RESEARCH_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
@@ -73,6 +74,12 @@ def strategy_row_to_payload(row: pd.Series | dict[str, Any]) -> dict[str, Any]:
 
 
 def canonical_research_family(payload: dict[str, Any]) -> str:
+    explicit = str(payload.get("research_family") or "").strip()
+    if explicit:
+        return explicit
+    reg = resolve_entry(payload.get("strategy_name"))
+    if reg.get("strategy_family") in CORE_RESEARCH_FAMILIES:
+        return str(reg["strategy_family"])
     inferred = infer_strategy_family(
         {
             "strategy_name": payload.get("strategy_name"),
@@ -86,29 +93,80 @@ def canonical_research_family(payload: dict[str, Any]) -> str:
     return inferred or "unknown"
 
 
+def _decorate_saved_payload(payload: dict[str, Any], reg: dict[str, Any]) -> dict[str, Any]:
+    out = dict(payload)
+    out["research_family"] = reg["strategy_family"]
+    out["registry_key"] = reg.get("registry_key")
+    out["registry_version"] = reg.get("registry_version")
+    out["research_source"] = "saved_strategy"
+    out["benchmark_only"] = False
+    out["required_data"] = list(reg.get("required_data") or [])
+    return out
+
+
 def select_core_strategies(
-    strategy_df: pd.DataFrame,
+    strategy_df: pd.DataFrame | None,
     families: list[str] | None = None,
     *,
     max_per_family: int = 1,
 ) -> list[dict[str, Any]]:
+    """Select historically replayable strategies using explicit registry metadata.
+
+    Saved strategies are preferred. Benchmark-only registry entries are used only to
+    fill a core-family gap, which is how V28.12 supplies an OHLCV-only compression
+    control without adding it to the live/paper strategy library.
+    """
     families = families or list(CORE_RESEARCH_FAMILIES)
-    wanted = [f for f in families if f in CORE_FAMILY_GROUPS]
-    if strategy_df is None or strategy_df.empty:
-        return []
-    work = strategy_df.copy()
-    if "version_no" in work.columns:
-        work = work.sort_values(["strategy_id", "version_no"], ascending=[True, False])
+    wanted = [f for f in families if f in CORE_RESEARCH_FAMILIES]
+    limit = max(1, int(max_per_family))
     selected: list[dict[str, Any]] = []
     counts = {family: 0 for family in wanted}
-    for _, row in work.iterrows():
-        payload = strategy_row_to_payload(row)
-        family = canonical_research_family(payload)
-        if family not in wanted or counts[family] >= max(1, int(max_per_family)):
+
+    work = pd.DataFrame() if strategy_df is None else strategy_df.copy()
+    candidates: list[tuple[int, int, dict[str, Any], dict[str, Any]]] = []
+    if not work.empty:
+        if "version_no" in work.columns:
+            work = work.sort_values(["strategy_id", "version_no"], ascending=[True, False]).drop_duplicates("strategy_id")
+        for _, row in work.iterrows():
+            payload = strategy_row_to_payload(row)
+            reg = resolve_entry(payload.get("strategy_name"))
+            family = str(reg.get("strategy_family") or "")
+            if family not in wanted:
+                continue
+            if not bool(reg.get("research_included")) or not bool(reg.get("historical_ready")):
+                continue
+            candidates.append((int(reg.get("research_priority") or 999), int(payload.get("strategy_id") or 0), payload, reg))
+
+    for _, _, payload, reg in sorted(candidates, key=lambda item: (item[0], item[1])):
+        family = str(reg["strategy_family"])
+        if counts[family] >= limit:
             continue
-        payload["research_family"] = family
-        selected.append(payload)
+        selected.append(_decorate_saved_payload(payload, reg))
         counts[family] += 1
+
+    benchmark_rows = sorted(
+        [
+            row
+            for row in compiled_registry()
+            if row.get("benchmark_only")
+            and row.get("research_included")
+            and row.get("historical_ready")
+            and row.get("strategy_family") in wanted
+        ],
+        key=lambda row: (int(row.get("research_priority") or 999), str(row.get("registry_key") or "")),
+    )
+    selected_names = {str(x.get("strategy_name") or "") for x in selected}
+    for reg in benchmark_rows:
+        family = str(reg["strategy_family"])
+        if counts[family] >= limit:
+            continue
+        payload = load_registry_strategy_payload(str(reg["registry_key"]))
+        if str(payload.get("strategy_name") or "") in selected_names:
+            continue
+        selected.append(payload)
+        selected_names.add(str(payload.get("strategy_name") or ""))
+        counts[family] += 1
+
     return selected
 
 
@@ -130,6 +188,9 @@ def build_research_plan(
                     "research_family": family,
                     "strategy_name": payload.get("strategy_name"),
                     "version_no": payload.get("version_no"),
+                    "strategy_source": payload.get("research_source") or "saved_strategy",
+                    "benchmark_only": bool(payload.get("benchmark_only", False)),
+                    "required_data": ", ".join(payload.get("required_data") or ["ohlcv"]),
                     "score_threshold": payload.get("score_threshold"),
                     "expected_rr": payload.get("expected_rr"),
                     "entry_timeframe": entry_timeframe,
@@ -175,16 +236,33 @@ def queue_core_research_batch(
 ) -> dict[str, Any]:
     storage = storage or Storage(LAB_DB_PATH)
     symbols = [str(s).upper() for s in (symbols or CORE_RESEARCH_SYMBOLS)]
-    families = families or list(CORE_RESEARCH_FAMILIES)
+    families = [f for f in (families or list(CORE_RESEARCH_FAMILIES)) if f in CORE_RESEARCH_FAMILIES]
     strategy_df = storage.get_latest_strategy_versions()
     strategies = select_core_strategies(strategy_df, families, max_per_family=max_per_family)
-    if not strategies:
-        return {"queued": False, "reason": "No strategies matched the selected core research families.", "strategies": [], "plan": pd.DataFrame()}
+    represented = {str(x.get("research_family") or "") for x in strategies}
+    missing_families = [family for family in families if family not in represented]
+    if missing_families:
+        return {
+            "queued": False,
+            "reason": f"Research protocol incomplete; no historically ready strategy for: {', '.join(missing_families)}",
+            "strategies": strategies,
+            "plan": pd.DataFrame(),
+            "missing_families": missing_families,
+        }
 
     start_date, end_date = default_research_dates(lookback_days)
     config = dict(DEFAULT_RESEARCH_CONFIG)
     config.update(config_overrides or {})
     plan = build_research_plan(strategies, symbols, entry_timeframe=entry_timeframe, analysis_timeframe=analysis_timeframe)
+    strategy_sources = {
+        str(x.get("research_family")): {
+            "strategy_name": x.get("strategy_name"),
+            "source": x.get("research_source") or "saved_strategy",
+            "benchmark_only": bool(x.get("benchmark_only", False)),
+            "required_data": x.get("required_data") or ["ohlcv"],
+        }
+        for x in strategies
+    }
     path = create_batch_job(
         source_root=str(source_root or OHLCV_STORE_ROOT),
         symbols=symbols,
@@ -194,14 +272,17 @@ def queue_core_research_batch(
         end_date=end_date,
         config=config,
         strategies=strategies,
-        comment=comment or "V28.9 core research batch: three-family evidence run.",
+        comment=comment or "V28.12 three-family OHLCV evidence run.",
         extra={
-            "run_kind": "v28_9_core_research",
+            "run_kind": "v28_12_core_research",
             "research_families": families,
             "research_symbols": symbols,
             "research_protocol": {
-                "purpose": "Compare a small set of strategy families on slow timeframes with realistic friction before adding more complexity.",
-                "promotion_rule": "Do not promote from one run; require enough trades, positive net expectancy, acceptable drawdown, and follow-up cross-validation.",
+                "version": "28.12-three-family-ohlcv-v1",
+                "purpose": "Compare trend-pullback, compression-breakout and range-reversion on the same replayable OHLCV history with realistic friction.",
+                "strategy_sources": strategy_sources,
+                "benchmark_policy": "The OHLCV compression strategy is a research control only; it is not a production/live strategy.",
+                "promotion_rule": "Do not promote from one run. Require adequate sample size, positive net expectancy after friction, acceptable drawdown, cross-period/pair stability, then out-of-sample and paper validation.",
             },
         },
     )
@@ -213,6 +294,7 @@ def queue_core_research_batch(
         "start_date": start_date,
         "end_date": end_date,
         "config": config,
+        "protocol_version": "28.12-three-family-ohlcv-v1",
     }
 
 
@@ -270,18 +352,21 @@ def build_market_state_dashboard(
 def recent_research_jobs(limit: int = 10) -> pd.DataFrame:
     rows = []
     for job in list_jobs():
-        if str(job.get("run_kind") or "").startswith("v28_9"):
-            progress = job.get("progress") or {}
-            rows.append(
-                {
-                    "job_id": job.get("job_id"),
-                    "status": job.get("status"),
-                    "created_at": job.get("created_at"),
-                    "completed": progress.get("completed", 0),
-                    "total": progress.get("total", 0),
-                    "current_strategy": progress.get("current_strategy"),
-                    "symbols": ", ".join(job.get("symbols") or []),
-                    "families": ", ".join(job.get("research_families") or []),
-                }
-            )
+        run_kind = str(job.get("run_kind") or "")
+        if run_kind not in {"v28_9_core_research", "v28_12_core_research"}:
+            continue
+        progress = job.get("progress") or {}
+        rows.append(
+            {
+                "job_id": job.get("job_id"),
+                "run_kind": run_kind,
+                "status": job.get("status"),
+                "created_at": job.get("created_at"),
+                "completed": progress.get("completed", 0),
+                "total": progress.get("total", 0),
+                "current_strategy": progress.get("current_strategy"),
+                "symbols": ", ".join(job.get("symbols") or []),
+                "families": ", ".join(job.get("research_families") or []),
+            }
+        )
     return pd.DataFrame(rows[: max(1, int(limit))])
