@@ -408,6 +408,58 @@ Recommended regular command:
 .\.venv\Scripts\python.exe backfill_default_history.py --lookback 12mo --update-only --overlap-bars 2 --request-analysis
 ```
 
+## V28.20 — Adaptive Evidence & Economic Viability
+
+Decision: stop treating a plausible Market State label as sufficient evidence. The adaptive system must demonstrate measurable economic improvement over static family baselines before stronger validation.
+
+The V28.20 test is a causal counterfactual layer over already-simulated family trades:
+
+```text
+saved strategy signal
+-> latest historical router state that was already available
+-> require family/action/direction match
+-> apply fixed router risk multiplier
+-> compare selected evidence with static baseline
+```
+
+Decision: use backward-only state joins. A router decision after a strategy signal must never influence that earlier signal.
+
+Decision: choose one representative saved run per family by explicit registry priority, not by historical PnL. This reduces winner-picking after outcomes are known.
+
+Decision: measure adaptation in exposure-normalized terms, not only absolute PnL. V28.20 reports profit factor, expectancy bps per capital turn, drawdown, pair/month stability and family concentration.
+
+Decision: treat `WAIT` as an economic decision. Report avoided losses and missed profits separately so a router is not praised for simply taking fewer trades.
+
+Decision: stress the selected adaptive set with additional round-trip friction of 0/5/10/20/40 bps and require explicit friction headroom.
+
+Decision: audit capital overlap. If independently simulated family trades overlap, summed fixed-stake PnL is not a deployable single-account return. Concurrency is exposed and criticized rather than hidden.
+
+Decision: historical promotion is blocked unless representative source runs carry V28.18 timing integrity and the V28.19 source OHLCV continuity audit passes.
+
+Decision: if the benchmark-only OHLCV compression strategy participates, an otherwise strong result remains `promising_research_only`; it cannot become an unrestricted adaptive candidate.
+
+Verdicts:
+
+```text
+no_adaptive_evidence
+reject
+insufficient_evidence
+promising_research_only
+adaptive_edge_candidate
+```
+
+`adaptive_edge_candidate` means only that the frozen adaptive hypothesis has earned stronger validation. It is not a forecast of profit and does not enable paper/live execution.
+
+Decision: persist each V28.20 analysis as a reproducible snapshot under:
+
+```text
+data/backtest_reviews/adaptive_evidence/
+```
+
+The snapshot fingerprints the adaptive-evidence, Market State Router and Market State Replay policies with SHA-256 hashes. Future validation must be able to prove which exact adaptive logic generated the historical evidence.
+
+Largest remaining methodological gap: an exact account-level adaptive replay with one shared capital pool, simultaneous-candidate arbitration, portfolio exposure limits and one causal equity curve. Build that before adding broad new strategy complexity.
+
 ## Current strategic decision
 
 Continue the project as a research/validation system, but keep execution changes frozen until evidence is materially stronger.
@@ -417,6 +469,7 @@ Keep:
 - integrity-safe historical OHLCV storage;
 - closed-bar historical timing;
 - Market State Identifier and adaptive routing research;
+- adaptive economic-value testing rather than signal-count vanity metrics;
 - explicit strategy-family registry;
 - friction-aware evaluation;
 - conservative evidence rejection;
@@ -438,10 +491,11 @@ V28.19 trustworthy OHLCV
 -> V28.16 Market State Identifier
 -> V28.17 historical state replay
 -> controlled static family baselines
--> V28.13 Evidence Review
--> V28.14 frozen walk-forward
+-> V28.20 adaptive economic evidence
+-> exact account-aware adaptive replay
+-> frozen walk-forward of complete adaptive policy
 -> freeze complete adaptive framework
--> V28.15 genuinely future holdout
+-> V28.15-style genuinely future holdout
 -> frozen paper validation
 -> constrained live execution only later
 ```

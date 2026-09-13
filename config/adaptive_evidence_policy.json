@@ -1,0 +1,20 @@
+{
+  "version": "28.20",
+  "core_families": ["trend_pullback", "compression_breakout", "range_reversion"],
+  "eligible_router_actions": ["TRADE_CANDIDATE"],
+  "require_direction_match": true,
+  "min_trades_for_review": 80,
+  "min_active_symbols": 2,
+  "min_active_months": 6,
+  "min_positive_symbol_share": 0.67,
+  "min_positive_month_share": 0.55,
+  "max_family_trade_concentration": 0.70,
+  "min_profit_factor": 1.15,
+  "max_drawdown_to_net_profit": 1.25,
+  "min_break_even_extra_friction_bps": 8.0,
+  "min_profit_factor_uplift_vs_static_pool": 0.05,
+  "min_expectancy_uplift_bps_vs_static_pool": 2.0,
+  "friction_stress_round_trip_bps": [0, 5, 10, 20, 40],
+  "max_state_age_hours": 8,
+  "notes": "Research-only policy. Adaptive evidence is a counterfactual filter/weighting of already simulated strategy trades, not a capital-aware portfolio backtest and not permission for paper/live execution."
+}

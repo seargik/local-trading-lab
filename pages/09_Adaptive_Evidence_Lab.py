@@ -1,0 +1,3 @@
+from app_src.adaptive_evidence_ui import render_adaptive_evidence_lab
+
+render_adaptive_evidence_lab()
