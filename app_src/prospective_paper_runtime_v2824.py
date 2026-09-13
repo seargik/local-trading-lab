@@ -11,6 +11,65 @@ from .ohlcv_store import load_range
 from .prospective_paper_signals_v2824 import fetch_or_proxy_quote, normalize_quote
 from .settings import OHLCV_STORE_ROOT
 
+RUNTIME_IMPLEMENTATION_PATH = Path("app_src/prospective_paper_runtime_v2824.py")
+RUNTIME_HARDENING_VERSION = "28.24-local-close-fallback-preallocation-mtm"
+
+
+def _runtime_fingerprint() -> dict[str, str]:
+    return {
+        "path": str(RUNTIME_IMPLEMENTATION_PATH),
+        "sha256": core._file_sha256(RUNTIME_IMPLEMENTATION_PATH),
+        "version": RUNTIME_HARDENING_VERSION,
+    }
+
+
+def build_paper_session_freeze(
+    future_freeze: dict[str, Any],
+    future_snapshot_summary: dict[str, Any],
+    *,
+    now: datetime | None = None,
+    policy: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build the base V28.24 freeze and also bind the hardened runtime wrapper."""
+    record = core.build_paper_session_freeze(
+        future_freeze,
+        future_snapshot_summary,
+        now=now,
+        policy=policy,
+    )
+    record["runtime_hardening"] = _runtime_fingerprint()
+    record["record_sha256"] = core.paper_freeze_record_hash(record)
+    return record
+
+
+def verify_paper_session_freeze(record: dict[str, Any], *, check_current: bool = True) -> dict[str, Any]:
+    verification = dict(core.verify_paper_session_freeze(record, check_current=check_current))
+    frozen = dict(record.get("runtime_hardening") or {})
+    stored_ok = bool(
+        frozen.get("sha256")
+        and str(frozen.get("version") or "") == RUNTIME_HARDENING_VERSION
+        and str(frozen.get("path") or "") == str(RUNTIME_IMPLEMENTATION_PATH)
+    )
+    current_match = True
+    if check_current:
+        current_match = stored_ok and str(frozen.get("sha256") or "") == str(_runtime_fingerprint().get("sha256") or "")
+    verification["runtime_hardening_stored"] = stored_ok
+    verification["runtime_hardening_current_match"] = current_match
+    if not stored_ok:
+        verification.setdefault("drift", []).append("runtime_hardening_missing_or_invalid")
+    elif check_current and not current_match:
+        verification.setdefault("drift", []).append("implementation:prospective_paper_runtime")
+    verification["internal_valid"] = bool(verification.get("internal_valid", False) and stored_ok)
+    verification["ok"] = bool(verification.get("ok", False) and stored_ok and (current_match if check_current else True))
+    return verification
+
+
+def save_paper_session_freeze(record: dict[str, Any], output_dir: str | Path = core.FREEZE_DIR) -> Path:
+    verification = verify_paper_session_freeze(record, check_current=False)
+    if not verification.get("ok", False):
+        raise ValueError("Refusing to save a V28.24 freeze without the hardened runtime fingerprint.")
+    return core.save_paper_session_freeze(record, output_dir=output_dir)
+
 
 def _local_reference_price(
     record: dict[str, Any],
@@ -23,7 +82,7 @@ def _local_reference_price(
     """Return the latest locally closed price available at or before ``at_time``.
 
     This prevents MTM from quietly reverting to the position entry price when
-    the live quote endpoint is unavailable.  The boolean says whether a local
+    the live quote endpoint is unavailable. The boolean says whether a local
     close was actually found.
     """
     delta = core._interval_delta(record)
@@ -72,7 +131,7 @@ def _ensure_position_quotes(
         )
         if after_window:
             # Never use a quote observed after the fixed endpoint to value the
-            # endpoint.  Use the final locally closed bar instead.
+            # endpoint. Use the final locally closed bar instead.
             quote = normalize_quote(symbol, None, reference_price=reference, now=target_end.to_pydatetime())
             quote["source"] = "fixed_endpoint_closed_bar"
         else:
@@ -112,7 +171,7 @@ def run_prospective_paper_cycle(
 ) -> dict[str, Any]:
     """Run the evidence-grade V28.24 cycle with current MTM before allocation.
 
-    The base engine owns the evidence model and append-only ledger.  This runtime
+    The base engine owns the evidence model and append-only ledger. This runtime
     wrapper hardens two economic details:
 
     * existing positions are marked before new risk is sized, so allocation does
@@ -121,7 +180,7 @@ def run_prospective_paper_cycle(
       candle rather than silently marking positions back at entry.
     """
     policy = core._paper_policy(record)
-    verification = core.verify_paper_session_freeze(
+    verification = verify_paper_session_freeze(
         record,
         check_current=bool(policy.get("require_current_framework_match", True)),
     )
@@ -237,7 +296,7 @@ def run_prospective_paper_cycle(
 
     snapshot_time = min(now_ts, target_end)
 
-    # Price every already-open position before sizing new entries.  This makes
+    # Price every already-open position before sizing new entries. This makes
     # the risk budget respond to current paper losses/gains rather than to the
     # previous cycle's equity.
     _ensure_position_quotes(
@@ -259,7 +318,7 @@ def run_prospective_paper_cycle(
         core._allocate_candidates(record, state, "static", candidates, decision_for_alloc, session_root=session_root)
         core._allocate_candidates(record, state, "adaptive", candidates, decision_for_alloc, session_root=session_root)
 
-    # New positions normally have a quote from their decision slot.  Re-run the
+    # New positions normally have a quote from their decision slot. Re-run the
     # coverage helper for completeness before the final MTM snapshot.
     _ensure_position_quotes(
         record,
@@ -300,5 +359,5 @@ def run_prospective_paper_cycle(
         "static": marks.get("static"),
         "target_end_utc": record.get("target_end_utc"),
         "status": state.get("status"),
-        "mtm_runtime_hardening": "28.24-local-close-fallback-preallocation-mtm",
+        "mtm_runtime_hardening": RUNTIME_HARDENING_VERSION,
     }
