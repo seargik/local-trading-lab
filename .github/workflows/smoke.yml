@@ -18,7 +18,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
       - name: Compile source
-        run: python -m compileall app.py backtest_app.py backtest_worker.py app_src pages
+        run: python -m compileall app.py backtest_app.py backtest_worker.py paper_validation_cycle.py app_src pages
       - name: Run repo smoke tests
         run: |
           python smoke_test_v28_4_repo_ready.py
@@ -41,3 +41,4 @@ jobs:
           python smoke_test_v28_21_shared_account.py
           python smoke_test_v28_22_adaptive_portfolio_walk_forward.py
           python smoke_test_v28_23_future_adaptive_portfolio_holdout.py
+          python smoke_test_v28_24_prospective_paper_validation.py
