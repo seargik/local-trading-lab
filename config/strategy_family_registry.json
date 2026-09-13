@@ -1,1 +1,132 @@
-{"version":"28.11","available_historical_data":["ohlcv"],"core_research_families":["trend_pullback","compression_breakout","range_reversion"],"entries":{"htf_bias_ltf_pullback":{"family":"trend_pullback","research":true,"ready":true,"requires":["ohlcv"],"priority":1},"htf_pullback_continuation":{"family":"trend_pullback","research":true,"ready":true,"requires":["ohlcv"],"priority":2},"vwap_reclaim_trend_continuation":{"family":"trend_pullback","research":true,"ready":true,"requires":["ohlcv"],"priority":3},"compression_breakout_oi_expansion":{"family":"compression_breakout","research":true,"ready":false,"requires":["ohlcv","open_interest_history"],"priority":1},"compression_release_scalper":{"family":"compression_breakout","research":true,"ready":false,"requires":["ohlcv","open_interest_history","order_book_history"],"priority":2},"mean_reversion":{"family":"range_reversion","research":true,"ready":true,"requires":["ohlcv"],"priority":1},"range_rotation_midline_rejection":{"family":"range_reversion","research":true,"ready":true,"requires":["ohlcv"],"priority":2},"market_maker_range_scalper":{"family":"range_reversion","research":true,"ready":false,"requires":["ohlcv","order_book_history"],"priority":3},"trend_following":{"family":"trend_following","research":false,"ready":true,"requires":["ohlcv"]},"rsi_best_practices":{"family":"momentum_regime","research":false,"ready":true,"requires":["ohlcv"]},"failed_breakout_liquidity_sweep_fade":{"family":"liquidity_reversal","research":false,"ready":true,"requires":["ohlcv"]},"smart_money_concept_proxy":{"family":"liquidity_structure","research":false,"ready":true,"requires":["ohlcv"]},"smc_continuation_reclaim":{"family":"structure_continuation","research":false,"ready":true,"requires":["ohlcv"]},"elliott_wave_proxy":{"family":"other","research":false,"ready":true,"requires":["ohlcv"]},"regime_filter_no_trade_gate":{"family":"no_trade_gate","research":false,"ready":true,"requires":["ohlcv"]},"oi_funding_exhaustion_reversal":{"family":"derivatives_reversal","research":false,"ready":false,"requires":["ohlcv","open_interest_history","funding_history"]},"order_book_absorption_reversal":{"family":"orderflow_reversal","research":false,"ready":false,"requires":["ohlcv","order_book_history"]}}}
+{
+  "version": "28.12",
+  "available_historical_data": [
+    "ohlcv"
+  ],
+  "core_research_families": [
+    "trend_pullback",
+    "compression_breakout",
+    "range_reversion"
+  ],
+  "entries": {
+    "htf_bias_ltf_pullback": {
+      "family": "trend_pullback",
+      "research": true,
+      "ready": true,
+      "requires": ["ohlcv"],
+      "priority": 1
+    },
+    "htf_pullback_continuation": {
+      "family": "trend_pullback",
+      "research": true,
+      "ready": true,
+      "requires": ["ohlcv"],
+      "priority": 2
+    },
+    "vwap_reclaim_trend_continuation": {
+      "family": "trend_pullback",
+      "research": true,
+      "ready": true,
+      "requires": ["ohlcv"],
+      "priority": 3
+    },
+    "ohlcv_compression_breakout_benchmark": {
+      "family": "compression_breakout",
+      "research": true,
+      "ready": true,
+      "requires": ["ohlcv"],
+      "priority": 1,
+      "benchmark_only": true,
+      "source": "bundled_research_benchmark"
+    },
+    "compression_breakout_oi_expansion": {
+      "family": "compression_breakout",
+      "research": true,
+      "ready": false,
+      "requires": ["ohlcv", "open_interest_history"],
+      "priority": 2
+    },
+    "compression_release_scalper": {
+      "family": "compression_breakout",
+      "research": true,
+      "ready": false,
+      "requires": ["ohlcv", "open_interest_history", "order_book_history"],
+      "priority": 3
+    },
+    "mean_reversion": {
+      "family": "range_reversion",
+      "research": true,
+      "ready": true,
+      "requires": ["ohlcv"],
+      "priority": 1
+    },
+    "range_rotation_midline_rejection": {
+      "family": "range_reversion",
+      "research": true,
+      "ready": true,
+      "requires": ["ohlcv"],
+      "priority": 2
+    },
+    "market_maker_range_scalper": {
+      "family": "range_reversion",
+      "research": true,
+      "ready": false,
+      "requires": ["ohlcv", "order_book_history"],
+      "priority": 3
+    },
+    "trend_following": {
+      "family": "trend_following",
+      "research": false,
+      "ready": true,
+      "requires": ["ohlcv"]
+    },
+    "rsi_best_practices": {
+      "family": "momentum_regime",
+      "research": false,
+      "ready": true,
+      "requires": ["ohlcv"]
+    },
+    "failed_breakout_liquidity_sweep_fade": {
+      "family": "liquidity_reversal",
+      "research": false,
+      "ready": true,
+      "requires": ["ohlcv"]
+    },
+    "smart_money_concept_proxy": {
+      "family": "liquidity_structure",
+      "research": false,
+      "ready": true,
+      "requires": ["ohlcv"]
+    },
+    "smc_continuation_reclaim": {
+      "family": "structure_continuation",
+      "research": false,
+      "ready": true,
+      "requires": ["ohlcv"]
+    },
+    "elliott_wave_proxy": {
+      "family": "other",
+      "research": false,
+      "ready": true,
+      "requires": ["ohlcv"]
+    },
+    "regime_filter_no_trade_gate": {
+      "family": "no_trade_gate",
+      "research": false,
+      "ready": true,
+      "requires": ["ohlcv"]
+    },
+    "oi_funding_exhaustion_reversal": {
+      "family": "derivatives_reversal",
+      "research": false,
+      "ready": false,
+      "requires": ["ohlcv", "open_interest_history", "funding_history"]
+    },
+    "order_book_absorption_reversal": {
+      "family": "orderflow_reversal",
+      "research": false,
+      "ready": false,
+      "requires": ["ohlcv", "order_book_history"]
+    }
+  }
+}
