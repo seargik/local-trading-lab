@@ -1,0 +1,3 @@
+from app_src.future_adaptive_portfolio_holdout_ui import render_future_adaptive_portfolio_holdout
+
+render_future_adaptive_portfolio_holdout()
