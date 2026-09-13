@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import json
+import tempfile
+from pathlib import Path
+
 import pandas as pd
 
+from app_src.adaptive_evidence_report_v2820 import policy_fingerprints, save_adaptive_evidence_snapshot
 from app_src.adaptive_evidence_v2820 import (
     annotate_trades_with_router,
     evaluate_adaptive_trade_frames,
@@ -68,6 +73,7 @@ result = evaluate_adaptive_trade_frames(
     policy=policy,
     integrity=integrity,
 )
+result.job_id = "synthetic-v28-20"
 
 if result.verdict["verdict"] != "adaptive_edge_candidate":
     raise AssertionError(f"Expected adaptive edge candidate, got {result.verdict}")
@@ -105,4 +111,36 @@ blocked = evaluate_adaptive_trade_frames(
 if blocked.verdict["verdict"] != "promising_research_only" or not blocked.verdict["promotion_blocked"]:
     raise AssertionError(f"Benchmark-only compression should block promotion: {blocked.verdict}")
 
-print("V28.20 smoke test passed: causal router joins, WAIT value, economic uplift, friction stress and benchmark promotion blocks are available.")
+# Reproducibility: every economic snapshot must carry fingerprints for all adaptive policies.
+fingerprints = policy_fingerprints()
+for key in ["adaptive_evidence", "market_state_router", "market_state_replay"]:
+    if not fingerprints.get(key, {}).get("sha256"):
+        raise AssertionError(f"Missing policy fingerprint for {key}: {fingerprints}")
+
+with tempfile.TemporaryDirectory() as tmp:
+    report = save_adaptive_evidence_snapshot(
+        result,
+        source_job={
+            "job_id": result.job_id,
+            "created_at": "2026-09-13T00:00:00Z",
+            "symbols": ["BTCUSDT", "ETHUSDT"],
+            "entry_timeframe": "1h",
+            "analysis_timeframe": "4h",
+            "start_date": "2025-01-01",
+            "end_date": "2025-07-01",
+            "source_root": "synthetic",
+        },
+        policy=policy,
+        output_dir=Path(tmp),
+    )
+    manifest_path = report / "manifest.json"
+    trades_path = report / "annotated_trades.parquet"
+    if not manifest_path.exists() or not trades_path.exists():
+        raise AssertionError(f"Evidence snapshot is incomplete: {report}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not manifest.get("combined_policy_sha256"):
+        raise AssertionError("Evidence snapshot is missing combined policy hash")
+    if manifest.get("source_job_id") != result.job_id:
+        raise AssertionError(f"Evidence snapshot lost source job identity: {manifest}")
+
+print("V28.20 smoke test passed: causal router joins, WAIT value, economic uplift, friction stress, promotion blocks and reproducible evidence snapshots are available.")
