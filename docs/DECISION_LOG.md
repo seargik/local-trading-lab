@@ -173,6 +173,39 @@ realistic Binance USD-M friction
 trend_pullback vs compression_breakout vs range_reversion
 ```
 
+## V28.13 — Evidence Review / Research Scorecard
+
+Decision: completed core-research batches must pass a transparent evidence review before they are treated as candidates for more expensive validation.
+
+Verdicts:
+
+```text
+reject
+insufficient_evidence
+promising
+cross_validation_candidate
+```
+
+Decision: store triage thresholds in versioned configuration:
+
+```text
+config/research_evidence_policy.json
+```
+
+The review checks sample size, net PnL after friction, expectancy R, profit factor, pair stability, month stability, drawdown relative to net profit, and execution-friction drag.
+
+Decision: win rate is descriptive only and is not a promotion gate because different strategy families can have materially different payoff ratios.
+
+Decision: benchmark-only strategies can demonstrate concept promise but cannot receive direct production-oriented cross-validation-candidate status. The V28.12 compression benchmark therefore remains promotion-blocked even when its metrics are strong.
+
+Decision: scorecard snapshots can be saved under:
+
+```text
+data/backtest_reviews/evidence_scorecards/
+```
+
+and remain runtime research artifacts rather than Git source files.
+
 ## Current strategic decision
 
 Continue the project, but simplify aggressively.
@@ -184,6 +217,7 @@ Keep:
 - Trend lifecycle router and fit labels.
 - Explicit strategy-family registry.
 - Friction-aware evaluation.
+- Evidence Review and conservative reject/retain gates.
 - Cross-validation/promotion workflow.
 - Runtime-cycle orchestration.
 
@@ -197,5 +231,5 @@ Freeze for now:
 Focus:
 
 ```text
-historical coverage -> controlled three-family baseline -> reject/retain -> lifecycle evidence -> cross-validation -> paper validation
+historical coverage -> controlled three-family baseline -> Evidence Review -> reject/retain -> lifecycle evidence -> cross-validation -> paper validation
 ```
