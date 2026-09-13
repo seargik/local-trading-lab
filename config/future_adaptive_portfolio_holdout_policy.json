@@ -1,0 +1,23 @@
+{
+  "version": "28.23",
+  "require_source_verdict": "pass_for_future_freeze",
+  "target_holdout_days": 60,
+  "minimum_observation_days": 30,
+  "allow_preliminary_evaluation": false,
+  "min_accepted_trades": 30,
+  "min_active_symbols": 2,
+  "min_active_months": 2,
+  "min_profit_factor": 1.10,
+  "max_realized_drawdown_pct": 12.0,
+  "min_positive_symbol_share": 0.67,
+  "min_positive_month_share": 0.50,
+  "min_return_uplift_pct_points": 0.0,
+  "min_profit_factor_uplift": -0.05,
+  "required_positive_friction_stress_bps": 10,
+  "friction_stress_round_trip_bps": [0, 5, 10, 20, 40],
+  "block_if_benchmark_accepted": true,
+  "require_current_framework_match": true,
+  "require_job_integrity": true,
+  "require_data_integrity": true,
+  "one_future_freeze_per_source_framework": true
+}
