@@ -230,13 +230,7 @@ config/walk_forward_policy.json
 
 and treat them as versioned research policy rather than hidden AI judgment.
 
-Decision: include explicit pair-transfer diagnostics using the same frozen strategy:
-
-```text
-BTC training evidence -> ETH/SOL forward windows
-ETH training evidence -> BTC/SOL forward windows
-SOL training evidence -> BTC/ETH forward windows
-```
+Decision: include explicit pair-transfer diagnostics using the same frozen strategy.
 
 Decision: LONG/SHORT stability is reported but is not a hard V28.14 promotion gate because legitimate strategies may be directionally asymmetric.
 
@@ -254,6 +248,51 @@ invalid_test
 
 A pass authorizes only stronger validation, never live execution.
 
+## V28.15 — Research Freeze + Fresh Holdout
+
+Decision: only a V28.14 `pass_for_next_validation` may start the fresh-holdout clock.
+
+Decision: freeze the exact candidate before any future holdout candle exists. The freeze contains the complete strategy payload, frozen execution/friction configuration, symbols, timeframes, source run, V28.14 id, policy versions, UTC cutoff and fixed holdout dates.
+
+Decision: store two integrity checks:
+
+```text
+strategy_sha256
+record_sha256
+```
+
+If either the strategy payload or freeze record changes, the holdout becomes invalid rather than silently accepting the changed candidate.
+
+Decision: begin the holdout on the next UTC date after the freeze cutoff. Do not use the partially observed freeze day as unseen data.
+
+Default policy:
+
+```text
+target_holdout_days = 60
+minimum_observation_days = 30
+allow_preliminary_queue = false
+```
+
+Reason: fixing the full 60-day endpoint at freeze time is cleaner than repeatedly peeking after 30/40/50 days and stopping when the result looks favorable.
+
+Decision: the V28.15 evaluation button remains disabled until the full fixed calendar window has elapsed and local OHLCV for every frozen symbol reaches the fixed target end date.
+
+Decision: a holdout failure must not be repaired by tuning on the failed future window. Any redesign creates a new strategy hash, new freeze record, and new future-data clock.
+
+Possible V28.15 verdicts:
+
+```text
+fresh_holdout_pass
+fresh_holdout_mixed
+fresh_holdout_fail
+insufficient_evidence
+invalid_freeze_or_test
+```
+
+Decision: a `fresh_holdout_pass` is permission to start a separate paper-validation stage with the same frozen candidate. It is still not permission for live execution.
+
+Runtime artifacts under `data/backtest_reviews/research_freezes/` and `data/backtest_reviews/fresh_holdout_scorecards/` remain outside Git.
+
 ## Current strategic decision
 
 Continue the project, but simplify aggressively.
@@ -267,7 +306,7 @@ Keep:
 - Friction-aware evaluation.
 - Evidence Review and conservative reject/retain gates.
 - Frozen walk-forward validation and pair-transfer checks.
-- Cross-validation/promotion workflow.
+- Tamper-evident fresh future holdouts.
 - Runtime-cycle orchestration.
 
 Freeze for now:
@@ -283,9 +322,8 @@ Focus:
 historical coverage
 -> controlled three-family baseline
 -> V28.13 Evidence Review
--> reject/retain
 -> V28.14 frozen walk-forward
--> lifecycle/exact replay
--> fresh holdout
--> paper validation
+-> V28.15 fresh future holdout
+-> paper validation without retuning
+-> only later consider constrained live execution
 ```
