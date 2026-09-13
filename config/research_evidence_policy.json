@@ -1,0 +1,28 @@
+{
+  "version": "28.13-evidence-policy-v1",
+  "min_trades_for_review": 50,
+  "min_trades_for_reject": 30,
+  "min_trades_for_cross_validation": 100,
+  "min_active_symbols": 2,
+  "min_active_months": 4,
+  "promising": {
+    "min_profit_factor": 1.10,
+    "min_positive_symbol_share": 0.50,
+    "min_positive_month_share": 0.50,
+    "max_drawdown_to_net_profit": 1.50,
+    "max_friction_drag_share_of_gross": 0.60
+  },
+  "cross_validation": {
+    "min_profit_factor": 1.20,
+    "min_positive_symbol_share": 0.67,
+    "min_positive_month_share": 0.60,
+    "max_drawdown_to_net_profit": 1.00,
+    "max_friction_drag_share_of_gross": 0.50
+  },
+  "notes": [
+    "Verdicts are research triage, not trading recommendations.",
+    "Positive expectancy and positive net PnL after execution friction are required for promising/candidate verdicts.",
+    "Benchmark-only strategies can be promising concept evidence but are never promoted directly to cross-validation candidate status.",
+    "Win rate is displayed but is not a promotion gate because payoff structures differ by strategy family."
+  ]
+}
