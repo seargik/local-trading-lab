@@ -39,7 +39,7 @@ POLICY_FILES = {
 
 IMPLEMENTATION_FILES = {
     "backtest_core": Path("app_src/backtest_core.py"),
-    "market_state_router": Path("app_src/market_state_router_v2816.py"),
+    "market_state_router": Path("app_src/market_state_v2816.py"),
     "market_state_replay": Path("app_src/market_state_replay_v2817.py"),
     "adaptive_evidence": Path("app_src/adaptive_evidence_v2820.py"),
     "shared_account_replay": Path("app_src/shared_account_replay_v2821.py"),
