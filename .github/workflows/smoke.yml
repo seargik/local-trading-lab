@@ -32,3 +32,4 @@ jobs:
           python smoke_test_v28_12_ohlcv_compression_benchmark.py
           python smoke_test_v28_13_evidence_review.py
           python smoke_test_v28_14_walk_forward.py
+          python smoke_test_v28_15_fresh_holdout.py
