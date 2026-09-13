@@ -7,17 +7,24 @@ import pandas as pd
 from app_src.backtest_core import strategy_payload_to_slot
 from app_src.research_command_center_v29 import CORE_RESEARCH_FAMILIES, build_research_plan, select_core_strategies
 from app_src.strategies import score_from_slot
-from app_src.strategy_family_registry_v2811 import audit_strategies, family_readiness, load_registry_strategy_payload, resolve_entry
+from app_src.strategy_family_registry_v2811 import (
+    audit_strategies,
+    compiled_registry,
+    family_readiness,
+    load_registry_strategy_payload,
+    resolve_entry,
+)
 
 
 def _saved_strategy_rows() -> pd.DataFrame:
+    names = {row["registry_key"]: row["strategy_name"] for row in compiled_registry()}
     return pd.DataFrame(
         [
             {
                 "strategy_id": 1,
                 "version_id": 11,
                 "version_no": 1,
-                "strategy_name": "HTF Bias + LTF Pullback Entry",
+                "strategy_name": names["htf_bias_ltf_pullback"],
                 "template_key": "rule_builder",
                 "indicator_rules_json": "[]",
                 "rule_params_json": "{}",
@@ -28,7 +35,7 @@ def _saved_strategy_rows() -> pd.DataFrame:
                 "strategy_id": 2,
                 "version_id": 22,
                 "version_no": 1,
-                "strategy_name": "Mean Reversion",
+                "strategy_name": names["mean_reversion"],
                 "template_key": "range_reversion_trader",
                 "indicator_rules_json": "[]",
                 "rule_params_json": "{}",
