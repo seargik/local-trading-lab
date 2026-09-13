@@ -39,16 +39,17 @@ def _row(strategy_id: int, name: str, version_no: int = 1) -> dict[str, object]:
 
 def main() -> None:
     df = pd.DataFrame([
-        _row(1, "HTF Pullback Continuation"),
-        _row(2, "Compression Breakout"),
-        _row(3, "Range Rotation"),
+        _row(1, "HTF Bias + LTF Pullback Entry"),
+        _row(2, "Mean Reversion"),
     ])
     selected = select_core_strategies(df, CORE_RESEARCH_FAMILIES, max_per_family=1)
     assert len(selected) == 3, selected
     assert {x["research_family"] for x in selected} == set(CORE_RESEARCH_FAMILIES)
+    compression = next(x for x in selected if x["research_family"] == "compression_breakout")
+    assert compression["benchmark_only"] is True
 
     payload = strategy_row_to_payload(df.iloc[0])
-    assert payload["strategy_name"] == "HTF Pullback Continuation"
+    assert payload["strategy_name"] == "HTF Bias + LTF Pullback Entry"
     assert canonical_research_family(payload) == "trend_pullback"
 
     plan = build_research_plan(selected, CORE_RESEARCH_SYMBOLS)
@@ -63,7 +64,7 @@ def main() -> None:
     assert compileall.compile_file("app_src/research_command_center_v29.py", quiet=1)
     assert compileall.compile_file("app_src/research_command_center_ui.py", quiet=1)
     assert compileall.compile_file("pages/00_Research_Command_Center.py", quiet=1)
-    print("V28.9 smoke test passed: command center, core family selection, and research plan are available.")
+    print("V28.9 smoke test passed: command center, registry-aware family selection, and research plan are available.")
 
 
 if __name__ == "__main__":
