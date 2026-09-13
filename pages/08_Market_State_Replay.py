@@ -1,0 +1,4 @@
+from app_src.market_state_replay_ui import render_market_state_replay
+
+
+render_market_state_replay()
