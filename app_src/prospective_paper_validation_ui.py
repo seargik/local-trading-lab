@@ -7,16 +7,18 @@ import streamlit as st
 
 from .future_adaptive_portfolio_holdout_v2823 import list_future_freezes
 from .prospective_paper_validation_v2824 import (
-    build_paper_session_freeze,
     evaluate_paper_session,
     initialize_paper_session,
     list_future_holdout_snapshots,
     list_paper_session_freezes,
     load_paper_policy,
-    run_prospective_paper_cycle,
-    save_paper_session_freeze,
     save_paper_validation_snapshot,
     verify_event_chain,
+)
+from .prospective_paper_runtime_v2824 import (
+    build_paper_session_freeze,
+    run_prospective_paper_cycle,
+    save_paper_session_freeze,
     verify_paper_session_freeze,
 )
 
@@ -108,7 +110,7 @@ def render_prospective_paper_validation() -> None:
 
     st.subheader("2. Freeze one prospective paper clock")
     st.caption(
-        "The paper freeze binds the exact V28.23 result, future-framework hash, V28.24 policy and prospective implementation hashes. "
+        "The paper freeze binds the exact V28.23 result, future-framework hash, V28.24 policy, prospective implementation hashes and the hardened MTM runtime. "
         "The first eligible decision is the close of the first full entry candle that begins after this freeze."
     )
     if st.button("Create V28.24 paper freeze", type="primary", width="stretch"):
