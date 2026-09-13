@@ -40,6 +40,7 @@ def analysis(**overrides):
 
 policy = load_market_state_policy()
 assert policy["version"].startswith("28.16")
+assert policy["range_edges"] == {"lower": 0.20, "upper": 0.80}
 
 pullback = identify_market_state(analysis(), symbol="BTCUSDT", analysis_timeframe="4h", policy=policy)
 assert pullback.lifecycle_state == "trend_pullback_entry"
@@ -48,6 +49,7 @@ assert pullback.router_action == "TRADE_CANDIDATE"
 assert pullback.route_direction == "LONG"
 assert pullback.risk_multiplier > 0
 assert pullback.htf_alignment == "ALIGNED"
+assert pullback.structure_state == "BULLISH"
 
 compression = identify_market_state(
     analysis(
@@ -154,6 +156,7 @@ exhaustion = identify_market_state(
 )
 assert exhaustion.lifecycle_state == "trend_exhaustion"
 assert exhaustion.router_action == "WAIT_FOR_REVERSAL_CONFIRMATION"
+assert exhaustion.exit_family == "reversal_defensive"
 
 aligned = pullback.confidence
 conflict = identify_market_state(
