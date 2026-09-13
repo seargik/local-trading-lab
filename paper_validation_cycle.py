@@ -10,8 +10,10 @@ from app_src.prospective_paper_validation_v2824 import (
     initialize_paper_session,
     list_paper_session_freezes,
     load_paper_session_freeze,
-    run_prospective_paper_cycle,
     verify_event_chain,
+)
+from app_src.prospective_paper_runtime_v2824 import (
+    run_prospective_paper_cycle,
     verify_paper_session_freeze,
 )
 
@@ -41,13 +43,14 @@ def main() -> int:
         rows = []
         for item in list_paper_session_freezes():
             record = item.get("record") or {}
+            verification = verify_paper_session_freeze(record, check_current=True)
             rows.append({
                 "session_id": record.get("session_id"),
                 "created_at": record.get("created_at"),
                 "first_eligible_decision_utc": record.get("first_eligible_decision_utc"),
                 "target_end_utc": record.get("target_end_utc"),
                 "path": item.get("path"),
-                "integrity_ok": bool((item.get("verification") or {}).get("ok")),
+                "integrity_ok": bool(verification.get("ok")),
             })
         print(json.dumps(rows, indent=2, default=str))
         return 0
