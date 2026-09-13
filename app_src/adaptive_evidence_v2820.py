@@ -53,6 +53,12 @@ def _num(value: Any, default: float = 0.0) -> float:
         return float(default)
 
 
+def _series(frame: pd.DataFrame, column: str, default: Any = np.nan) -> pd.Series:
+    if column in frame.columns:
+        return frame[column]
+    return pd.Series(default, index=frame.index)
+
+
 def _profit_factor(pnl: pd.Series) -> float:
     values = pd.to_numeric(pnl, errors="coerce").fillna(0.0)
     gross_profit = float(values[values > 0].sum())
@@ -91,16 +97,13 @@ def _metric_row(frame: pd.DataFrame, *, label: str, pnl_col: str, stake_col: str
     stake = pd.to_numeric(frame[stake_col], errors="coerce").fillna(0.0).clip(lower=0.0)
     total_pnl = float(pnl.sum())
     capital_turns = float(stake.sum())
-    dd = _max_drawdown(pnl, frame.get("exit_time"))
-    r = pd.to_numeric(frame.get("r_multiple"), errors="coerce") if "r_multiple" in frame.columns else pd.Series(dtype=float)
-    if len(r):
-        if weight_col and weight_col in frame.columns:
-            weights = pd.to_numeric(frame[weight_col], errors="coerce").fillna(0.0).clip(lower=0.0)
-            expectancy_r = float(np.average(r.fillna(0.0), weights=weights)) if float(weights.sum()) > 0 else 0.0
-        else:
-            expectancy_r = float(r.fillna(0.0).mean())
+    dd = _max_drawdown(pnl, frame["exit_time"] if "exit_time" in frame.columns else None)
+    r = pd.to_numeric(_series(frame, "r_multiple", 0.0), errors="coerce").fillna(0.0)
+    if weight_col and weight_col in frame.columns:
+        weights = pd.to_numeric(frame[weight_col], errors="coerce").fillna(0.0).clip(lower=0.0)
+        expectancy_r = float(np.average(r, weights=weights)) if float(weights.sum()) > 0 else 0.0
     else:
-        expectancy_r = 0.0
+        expectancy_r = float(r.mean()) if len(r) else 0.0
     return {
         "scenario": label,
         "trades": int(len(frame)),
@@ -116,7 +119,7 @@ def _metric_row(frame: pd.DataFrame, *, label: str, pnl_col: str, stake_col: str
 
 
 def _normalize_saved_trades(run: dict[str, Any], family: str, meta: dict[str, Any]) -> pd.DataFrame:
-    trades = (run.get("trades") if isinstance(run, dict) else None)
+    trades = run.get("trades") if isinstance(run, dict) else None
     if trades is None or not isinstance(trades, pd.DataFrame) or trades.empty:
         return pd.DataFrame()
     frame = trades.copy()
@@ -124,15 +127,15 @@ def _normalize_saved_trades(run: dict[str, Any], family: str, meta: dict[str, An
     config = dict(manifest.get("config") or {})
     fixed_stake = max(0.01, _num(config.get("fixed_stake_usd"), 100.0))
     for col in ["signal_time", "entry_time", "exit_time"]:
-        frame[col] = pd.to_datetime(frame.get(col), utc=True, errors="coerce")
+        frame[col] = pd.to_datetime(_series(frame, col), utc=True, errors="coerce")
     frame = frame.dropna(subset=["signal_time", "entry_time", "exit_time"]).copy()
-    frame["symbol"] = frame.get("symbol", "").astype(str).str.upper()
-    frame["side"] = frame.get("side", "").astype(str).str.upper()
-    frame["pnl_pct"] = pd.to_numeric(frame.get("pnl_pct"), errors="coerce").fillna(0.0)
-    frame["raw_pnl_pct"] = pd.to_numeric(frame.get("raw_pnl_pct"), errors="coerce")
-    frame["execution_cost_pct"] = pd.to_numeric(frame.get("execution_cost_pct"), errors="coerce").fillna(0.0)
-    frame["raw_pnl_pct"] = frame["raw_pnl_pct"].fillna(frame["pnl_pct"] + frame["execution_cost_pct"])
-    frame["risk_pct"] = pd.to_numeric(frame.get("risk_pct"), errors="coerce").replace(0, np.nan)
+    frame["symbol"] = _series(frame, "symbol", "").astype(str).str.upper()
+    frame["side"] = _series(frame, "side", "").astype(str).str.upper()
+    frame["pnl_pct"] = pd.to_numeric(_series(frame, "pnl_pct", 0.0), errors="coerce").fillna(0.0)
+    frame["execution_cost_pct"] = pd.to_numeric(_series(frame, "execution_cost_pct", 0.0), errors="coerce").fillna(0.0)
+    raw = pd.to_numeric(_series(frame, "raw_pnl_pct"), errors="coerce")
+    frame["raw_pnl_pct"] = raw.fillna(frame["pnl_pct"] + frame["execution_cost_pct"])
+    frame["risk_pct"] = pd.to_numeric(_series(frame, "risk_pct"), errors="coerce").replace(0, np.nan)
     frame["r_multiple"] = frame["pnl_pct"] / frame["risk_pct"]
     frame["fixed_stake_usd"] = fixed_stake
     frame["static_stake_usd"] = fixed_stake
@@ -142,7 +145,10 @@ def _normalize_saved_trades(run: dict[str, Any], family: str, meta: dict[str, An
     frame["research_family"] = family
     frame["strategy_name"] = str(meta.get("strategy_name") or manifest.get("name") or "Strategy")
     frame["benchmark_only"] = bool(meta.get("benchmark_only", False))
-    frame["timing_integrity_version"] = str(config.get("timing_integrity_version") or frame.get("timing_integrity_version", "").iloc[0] if len(frame) else "")
+    timing_version = str(config.get("timing_integrity_version") or "")
+    if not timing_version and "timing_integrity_version" in frame.columns and frame["timing_integrity_version"].notna().any():
+        timing_version = str(frame.loc[frame["timing_integrity_version"].notna(), "timing_integrity_version"].iloc[0])
+    frame["timing_integrity_version"] = timing_version
     return frame.reset_index(drop=True)
 
 
@@ -164,8 +170,8 @@ def _run_meta(run: dict[str, Any]) -> dict[str, Any]:
 def _representative_runs(job: dict[str, Any], loader: Callable[[str | Path], dict[str, Any]]) -> tuple[dict[str, dict[str, Any]], list[str]]:
     candidates: dict[str, list[tuple[dict[str, Any], dict[str, Any]]]] = {}
     warnings: list[str] = []
-    for result in job.get("results") or []:
-        run_dir = str(result.get("run_dir") or "")
+    for item in job.get("results") or []:
+        run_dir = str(item.get("run_dir") or "")
         if not run_dir:
             continue
         try:
@@ -175,9 +181,8 @@ def _representative_runs(job: dict[str, Any], loader: Callable[[str | Path], dic
             continue
         meta = _run_meta(run)
         family = meta["research_family"]
-        if family not in CORE_FAMILIES:
-            continue
-        candidates.setdefault(family, []).append((meta, run))
+        if family in CORE_FAMILIES:
+            candidates.setdefault(family, []).append((meta, run))
     chosen: dict[str, dict[str, Any]] = {}
     for family in CORE_FAMILIES:
         rows = candidates.get(family) or []
@@ -192,30 +197,28 @@ def _representative_runs(job: dict[str, Any], loader: Callable[[str | Path], dic
     return chosen, warnings
 
 
-def annotate_trades_with_router(
-    trades: pd.DataFrame,
-    replay_history: pd.DataFrame,
-    *,
-    family: str,
-    policy: dict[str, Any],
-) -> pd.DataFrame:
+def annotate_trades_with_router(trades: pd.DataFrame, replay_history: pd.DataFrame, *, family: str, policy: dict[str, Any]) -> pd.DataFrame:
     if trades.empty:
         return trades.copy()
     frame = trades.copy()
     replay = replay_history.copy()
     if replay.empty:
-        for col, value in {
-            "state_available": False,
-            "router_match": False,
-            "router_risk_multiplier": 0.0,
-        }.items():
-            frame[col] = value
+        frame["decision_time"] = pd.NaT
+        frame["state_available"] = False
+        frame["router_match"] = False
+        frame["router_risk_multiplier"] = 0.0
+        frame["adaptive_stake_usd"] = 0.0
+        frame["adaptive_pnl_usd"] = 0.0
+        frame["adaptive_execution_cost_usd"] = 0.0
         return frame
-    replay["symbol"] = replay["symbol"].astype(str).str.upper()
-    replay["decision_time"] = pd.to_datetime(replay["decision_time"], utc=True, errors="coerce")
-    replay = replay.dropna(subset=["decision_time"]).sort_values(["symbol", "decision_time"])
-    frame["signal_time"] = pd.to_datetime(frame["signal_time"], utc=True, errors="coerce")
-    frame = frame.dropna(subset=["signal_time"]).sort_values(["symbol", "signal_time"])
+
+    replay["symbol"] = _series(replay, "symbol", "").astype(str).str.upper()
+    replay["decision_time"] = pd.to_datetime(_series(replay, "decision_time"), utc=True, errors="coerce")
+    replay = replay.dropna(subset=["decision_time"]).sort_values(["decision_time", "symbol"]).reset_index(drop=True)
+    frame["signal_time"] = pd.to_datetime(_series(frame, "signal_time"), utc=True, errors="coerce")
+    frame["symbol"] = _series(frame, "symbol", "").astype(str).str.upper()
+    frame = frame.dropna(subset=["signal_time"]).sort_values(["signal_time", "symbol"]).reset_index(drop=True)
+
     keep = [
         "symbol", "decision_time", "market_state", "preferred_strategy_family", "router_action",
         "router_direction", "risk_multiplier", "confidence", "lookahead_ok", "state_label",
@@ -230,26 +233,36 @@ def annotate_trades_with_router(
         allow_exact_matches=True,
     )
     joined["state_age_hours"] = (joined["signal_time"] - joined["decision_time"]).dt.total_seconds() / 3600.0
+    if "lookahead_ok" not in joined.columns:
+        joined["lookahead_ok"] = True
+    if "preferred_strategy_family" not in joined.columns:
+        joined["preferred_strategy_family"] = ""
+    if "router_action" not in joined.columns:
+        joined["router_action"] = ""
+    if "router_direction" not in joined.columns:
+        joined["router_direction"] = ""
+    if "risk_multiplier" not in joined.columns:
+        joined["risk_multiplier"] = 0.0
     max_age = max(0.0, _num(policy.get("max_state_age_hours"), 8.0))
     joined["state_available"] = (
         joined["decision_time"].notna()
         & joined["state_age_hours"].ge(0)
         & joined["state_age_hours"].le(max_age)
-        & joined.get("lookahead_ok", True).fillna(False).astype(bool)
+        & joined["lookahead_ok"].fillna(False).astype(bool)
     )
     eligible_actions = {str(x) for x in (policy.get("eligible_router_actions") or ["TRADE_CANDIDATE"])}
-    family_match = joined.get("preferred_strategy_family", "").astype(str).eq(family)
-    action_match = joined.get("router_action", "").astype(str).isin(eligible_actions)
-    direction_match = joined.get("router_direction", "").astype(str).str.upper().eq(joined["side"].astype(str).str.upper())
+    family_match = joined["preferred_strategy_family"].astype(str).eq(family)
+    action_match = joined["router_action"].astype(str).isin(eligible_actions)
+    direction_match = joined["router_direction"].astype(str).str.upper().eq(_series(joined, "side", "").astype(str).str.upper())
     if not bool(policy.get("require_direction_match", True)):
         direction_match = pd.Series(True, index=joined.index)
     joined["router_match"] = joined["state_available"] & family_match & action_match & direction_match
-    joined["router_risk_multiplier"] = pd.to_numeric(joined.get("risk_multiplier"), errors="coerce").fillna(0.0).clip(lower=0.0, upper=2.0)
+    joined["router_risk_multiplier"] = pd.to_numeric(joined["risk_multiplier"], errors="coerce").fillna(0.0).clip(lower=0.0, upper=2.0)
     joined.loc[~joined["router_match"], "router_risk_multiplier"] = 0.0
-    joined["adaptive_stake_usd"] = joined["static_stake_usd"] * joined["router_risk_multiplier"]
-    joined["adaptive_pnl_usd"] = joined["static_pnl_usd"] * joined["router_risk_multiplier"]
-    joined["adaptive_execution_cost_usd"] = joined["execution_cost_usd"] * joined["router_risk_multiplier"]
-    joined["period_month"] = joined["exit_time"].dt.strftime("%Y-%m")
+    joined["adaptive_stake_usd"] = pd.to_numeric(_series(joined, "static_stake_usd", 0.0), errors="coerce").fillna(0.0) * joined["router_risk_multiplier"]
+    joined["adaptive_pnl_usd"] = pd.to_numeric(_series(joined, "static_pnl_usd", 0.0), errors="coerce").fillna(0.0) * joined["router_risk_multiplier"]
+    joined["adaptive_execution_cost_usd"] = pd.to_numeric(_series(joined, "execution_cost_usd", 0.0), errors="coerce").fillna(0.0) * joined["router_risk_multiplier"]
+    joined["period_month"] = pd.to_datetime(_series(joined, "exit_time"), utc=True, errors="coerce").dt.strftime("%Y-%m")
     return joined.reset_index(drop=True)
 
 
@@ -284,7 +297,6 @@ def _concurrency(frame: pd.DataFrame) -> dict[str, Any]:
         active_exits.append(exit_time)
         events.append((entry, 1))
         events.append((exit_time, -1))
-    # Exits before entries at identical timestamps avoid overstating concurrency.
     events.sort(key=lambda item: (item[0], item[1]))
     active = 0
     max_active = 0
@@ -307,36 +319,41 @@ def _integrity_for_job(job: dict[str, Any], family_runs: dict[str, dict[str, Any
         config = dict(manifest.get("config") or {})
         version = str(config.get("timing_integrity_version") or "")
         timing_versions[family] = version
-        if version != "28.18":
-            timing_ok = False
+        timing_ok = timing_ok and version == "28.18"
+    if len(family_runs) < len(CORE_FAMILIES):
+        timing_ok = False
+
     source_root = str(job.get("source_root") or "")
-    start = job.get("start_date")
-    end = job.get("end_date")
     symbols = [str(s).upper() for s in (job.get("symbols") or [])]
     timeframe = str(job.get("analysis_timeframe") or "4h")
     data_rows: list[dict[str, Any]] = []
     data_ok = bool(source_root and symbols)
-    if source_root and symbols:
-        for symbol in symbols:
-            try:
-                audit = audit_store_integrity(symbol, timeframe, start=start, end=end, store_root=source_root)
-                ok = bool(audit.get("continuity_ok")) and int(audit.get("rows") or 0) > 0
-                data_ok = data_ok and ok
-                data_rows.append({
-                    "symbol": symbol,
-                    "interval": timeframe,
-                    "rows": int(audit.get("rows") or 0),
-                    "gap_count": int(audit.get("gap_count") or 0),
-                    "unclosed_rows": int(audit.get("unclosed_rows") or 0),
-                    "ok": ok,
-                })
-            except Exception as exc:
-                data_ok = False
-                data_rows.append({"symbol": symbol, "interval": timeframe, "rows": 0, "gap_count": None, "unclosed_rows": None, "ok": False, "error": str(exc)})
+    for symbol in symbols:
+        try:
+            audit = audit_store_integrity(
+                symbol,
+                timeframe,
+                start=job.get("start_date"),
+                end=job.get("end_date"),
+                store_root=source_root,
+            )
+            ok = bool(audit.get("continuity_ok")) and int(audit.get("rows") or 0) > 0
+            data_ok = data_ok and ok
+            data_rows.append({
+                "symbol": symbol,
+                "interval": timeframe,
+                "rows": int(audit.get("rows") or 0),
+                "gap_count": int(audit.get("gap_count") or 0),
+                "unclosed_rows": int(audit.get("unclosed_rows") or 0),
+                "ok": ok,
+            })
+        except Exception as exc:
+            data_ok = False
+            data_rows.append({"symbol": symbol, "interval": timeframe, "rows": 0, "gap_count": None, "unclosed_rows": None, "ok": False, "error": str(exc)})
     return {
-        "timing_integrity_ok": timing_ok,
+        "timing_integrity_ok": bool(timing_ok),
         "timing_versions": timing_versions,
-        "data_integrity_ok": data_ok,
+        "data_integrity_ok": bool(data_ok),
         "data_audit": data_rows,
         "ok": bool(timing_ok and data_ok),
     }
@@ -365,17 +382,18 @@ def evaluate_adaptive_trade_frames(
             continue
         annotated = annotate_trades_with_router(frame, replay_history, family=family, policy=policy)
         annotated_parts.append(annotated)
-        selected = annotated[annotated["router_match"]].copy()
+        selected = annotated[annotated["router_match"].fillna(False)].copy()
         static_metrics = _metric_row(annotated, label="static", pnl_col="static_pnl_usd", stake_col="static_stake_usd")
         adaptive_metrics = _metric_row(selected, label="adaptive", pnl_col="adaptive_pnl_usd", stake_col="adaptive_stake_usd", weight_col="router_risk_multiplier")
-        available = annotated[annotated["state_available"]].copy()
-        excluded = available[~available["router_match"]].copy()
-        excluded_pnl = pd.to_numeric(excluded.get("static_pnl_usd"), errors="coerce").fillna(0.0)
+        available = annotated[annotated["state_available"].fillna(False)].copy()
+        excluded = available[~available["router_match"].fillna(False)].copy()
+        excluded_pnl = pd.to_numeric(_series(excluded, "static_pnl_usd", 0.0), errors="coerce").fillna(0.0)
         meta = family_meta.get(family) or {}
+        benchmark_only = bool(meta.get("benchmark_only", False) or (_series(annotated, "benchmark_only", False).fillna(False).astype(bool).any()))
         family_rows.append({
             "research_family": family,
             "strategy_name": str(meta.get("strategy_name") or annotated["strategy_name"].iloc[0]),
-            "benchmark_only": bool(meta.get("benchmark_only", annotated.get("benchmark_only", pd.Series([False])).iloc[0])),
+            "benchmark_only": benchmark_only,
             "static_trades": static_metrics["trades"],
             "static_pnl_usd": static_metrics["total_pnl_usd"],
             "static_profit_factor": static_metrics["profit_factor"],
@@ -396,7 +414,7 @@ def evaluate_adaptive_trade_frames(
             "state_available_trades": int(len(available)),
             "selected_trades": int(len(selected)),
             "wait_or_rejected_trades": int(len(excluded)),
-            "unmatched_no_state_trades": int((~annotated["state_available"]).sum()),
+            "unmatched_no_state_trades": int((~annotated["state_available"].fillna(False)).sum()),
             "avoided_losing_trades": int((excluded_pnl < 0).sum()),
             "avoided_loss_usd": round(abs(float(excluded_pnl[excluded_pnl < 0].sum())), 2),
             "missed_winning_trades": int((excluded_pnl > 0).sum()),
@@ -406,7 +424,7 @@ def evaluate_adaptive_trade_frames(
         })
 
     annotated_all = pd.concat(annotated_parts, ignore_index=True) if annotated_parts else pd.DataFrame()
-    selected_all = annotated_all[annotated_all.get("router_match", False)].copy() if not annotated_all.empty else pd.DataFrame()
+    selected_all = annotated_all[annotated_all["router_match"].fillna(False)].copy() if not annotated_all.empty else pd.DataFrame()
     static_pool = _metric_row(annotated_all, label="static_pool", pnl_col="static_pnl_usd", stake_col="static_stake_usd")
     adaptive_pool = _metric_row(selected_all, label="adaptive_router", pnl_col="adaptive_pnl_usd", stake_col="adaptive_stake_usd", weight_col="router_risk_multiplier")
     pooled = pd.DataFrame([static_pool, adaptive_pool])
@@ -438,7 +456,7 @@ def evaluate_adaptive_trade_frames(
     positive_month_share = float((by_month["total_pnl_usd"] > 0).mean()) if len(by_month) else 0.0
     family_counts = selected_all.groupby("research_family").size() if not selected_all.empty else pd.Series(dtype=float)
     family_concentration = float(family_counts.max() / family_counts.sum()) if len(family_counts) and float(family_counts.sum()) > 0 else 0.0
-    benchmark_selected = bool((selected_all.get("benchmark_only", False) == True).any()) if not selected_all.empty and "benchmark_only" in selected_all.columns else False
+    benchmark_selected = bool(_series(selected_all, "benchmark_only", False).fillna(False).astype(bool).any()) if not selected_all.empty else False
     pf_uplift = float(adaptive_pool["profit_factor"] - static_pool["profit_factor"])
     expectancy_uplift = float(adaptive_pool["expectancy_bps_per_capital_turn"] - static_pool["expectancy_bps_per_capital_turn"])
 
@@ -461,14 +479,13 @@ def evaluate_adaptive_trade_frames(
         ),
     }
     hard_negative = adaptive_pool["trades"] >= 30 and (adaptive_pool["total_pnl_usd"] <= 0 or adaptive_pool["profit_factor"] < 1.0)
-    all_quality = all(checks.values())
     if adaptive_pool["trades"] == 0:
         verdict_name = "no_adaptive_evidence"
     elif hard_negative:
         verdict_name = "reject"
-    elif all_quality and not benchmark_selected:
+    elif all(checks.values()) and not benchmark_selected:
         verdict_name = "adaptive_edge_candidate"
-    elif all_quality and benchmark_selected:
+    elif all(checks.values()) and benchmark_selected:
         verdict_name = "promising_research_only"
     elif adaptive_pool["total_pnl_usd"] > 0 and adaptive_pool["profit_factor"] > 1.0:
         verdict_name = "promising_research_only"
@@ -480,17 +497,17 @@ def evaluate_adaptive_trade_frames(
     if not checks["data_integrity"]:
         critique.append("The source OHLCV store does not pass the V28.19 continuity/data-integrity gate for this job window.")
     if benchmark_selected:
-        critique.append("Compression evidence still uses a benchmark-only strategy; even strong adaptive results cannot be treated as production-ready while that family is represented by a benchmark control.")
+        critique.append("Compression evidence still uses a benchmark-only strategy; strong adaptive results remain research-only while that family is represented by a benchmark control.")
     if adaptive_pool["trades"] < int(policy.get("min_trades_for_review", 80)):
         critique.append(f"Adaptive sample is small ({adaptive_pool['trades']} trades); apparent uplift may be noise.")
     if family_concentration > _num(policy.get("max_family_trade_concentration"), 0.70):
-        critique.append(f"Adaptive trades are concentrated in one family ({family_concentration:.0%}); the router may only be rediscovering one strategy rather than adding adaptation value.")
+        critique.append(f"Adaptive trades are concentrated in one family ({family_concentration:.0%}); the router may be rediscovering one strategy rather than adding adaptation value.")
     if positive_month_share < _num(policy.get("min_positive_month_share"), 0.55) and len(by_month):
         critique.append(f"Only {positive_month_share:.0%} of active months are profitable after routing; time stability is weak.")
     if break_even_bps < _num(policy.get("min_break_even_extra_friction_bps"), 8.0):
         critique.append(f"Estimated friction headroom is only {break_even_bps:.1f} bps per capital turn; this is fragile for real execution.")
     if pf_uplift < 0 and expectancy_uplift < 0:
-        critique.append("The adaptive router reduces both profit factor and exposure-normalized expectancy versus the pooled static baseline; adaptation is not adding economic value in this sample.")
+        critique.append("The router reduces both profit factor and exposure-normalized expectancy versus the pooled static baseline; adaptation is not adding economic value in this sample.")
     if concurrency.get("max_concurrent", 0) > 1:
         critique.append(f"Selected trades overlap (max concurrency {concurrency['max_concurrent']}); summed PnL is not a capital-aware portfolio return and may overstate deployable economics.")
     if not critique:
